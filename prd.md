@@ -54,7 +54,7 @@ A lightweight, multiplayer design canvas (a “Figma‑like” surface) that sup
 * **Interaction latency**: cursor updates perceptibly < 100–150 ms; shape move propagation < 150–200 ms P95 on typical broadband.
 * **Frame rate**: ≥ 55–60 FPS during pan/zoom with ≤ 500 simple shapes.
 * **Reliability**: No data loss for committed creates/moves across tab refresh (covered by snapshots). Session reconnection in < 3 s.
-* **Time‑to‑first‑draw**: < 10 s from hitting the URL to placing a rectangle (cold start + auth + UI).
+* **Time-to-first-draw**: < 10 s from hitting the URL to placing a rectangle (cold start + auth + UI).
 
 ---
 
@@ -171,3 +171,43 @@ Shape:
 * Cursor presence broadcast at ~30–60 ms; positions interpolated on receive.
 * Shape transforms broadcast as minimal deltas; throttle to ~60–90 ms; commit final position on mouseup.
 * Snapshot throttle: **10 s idle (hard)**; batched writes.
+
+---
+
+## 13) Manual Verification Strategy
+
+* Maintain a living QA checklist per milestone covering auth, collaboration flows, snapshots, and deployment smoke tests.
+* Perform paired walkthroughs when feasible (two operators) to observe real-time sync and latency heuristics.
+* Capture session recordings or notes for regressions to inform future automation when priorities shift.
+
+## 14) Launch Readiness Checklist
+
+1. All acceptance criteria satisfied in the bundled build.
+2. Production environment configured (Liveblocks secret, Firebase keys, Firestore rules deployed).
+3. Manual perf pass: create 100 rectangles, pan/zoom → remains responsive.
+4. Manual multiplayer pass: two browsers editing concurrently; cursors and shapes stay within latency targets.
+5. Manual snapshot restore: edit shapes, wait 10 s, refresh → state persists.
+6. README updated with latest setup instructions and manual QA checklist.
+7. Observability notes captured (logs or dashboards) to monitor errors and presence counts.
+
+## 15) Open Questions
+
+1. What level of manual QA coverage is sustainable each milestone without automated tests?
+2. How do we track performance regressions over time relying on heuristic checks?
+3. Should we introduce lightweight telemetry to support manual verification loops?
+
+---
+
+## 16) Acceptance Criteria Summary
+
+| Story | Acceptance Criteria |
+| --- | --- |
+| Story 1 | Pan/zoom at ≥55 FPS; canvas interaction responsive in subjective testing. |
+| Story 2 | Rectangle tool available; shape creation works with expected default properties. |
+| Story 3 | Move/resize updates replicate across clients within 200 ms P95. |
+| Story 4 | Cursors display name + deterministic color; hide when user idle > 10 s. |
+| Story 5 | Remote edits render within 200 ms P95; no desync after 5 minutes of concurrent editing. |
+| Story 6 | Refresh restores latest snapshot; idle 10 s triggers snapshot write. |
+| Story 7 | Deployable on Vercel with documented setup; manual smoke QA checklist passes. |
+
+## 17) Appendix

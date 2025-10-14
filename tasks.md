@@ -6,7 +6,7 @@
 **Repo:** `collab-canvas` (Next.js App Router, Bun)
 
 > Branching: `main` is protected. Use short‑lived feature branches per PR (e.g., `pr-001-auth`).
-> Tests: Vitest for unit/integration. Run in CI on every PR.
+> Quality: focus on end-to-end verification via manual QA walkthroughs per milestone.
 
 ---
 
@@ -18,7 +18,7 @@
 * **M3**: Canvas (tldraw) + rectangle tool + transforms
 * **M4**: Realtime sync + throttled deltas
 * **M5**: Durable snapshots to Firestore (hard 10‑s idle)
-* **M6**: Tests + perf checks + deploy to Vercel
+* **M6**: Perf checks + deploy to Vercel
 
 ---
 
@@ -46,10 +46,6 @@ styles/
   globals.css
 public/
   favicon.ico
-__tests__/
-  unit/
-  integration/
-vitest.config.ts
 firebase.rules.firestore
 .env.example
 ```
@@ -58,7 +54,7 @@ firebase.rules.firestore
 
 ## PR‑000 — Repo Scaffold & Tooling
 
-**Goal:** Create Next.js app, add Tailwind + shadcn/ui, lint/format, test harness (Vitest + RTL).
+**Goal:** Create Next.js app, add Tailwind + shadcn/ui, lint/format.
 
 **Subtasks**
 
@@ -66,27 +62,20 @@ firebase.rules.firestore
 * Tailwind setup; import base styles; add `globals.css`.
 * Install shadcn/ui and generate minimal Button.
 * ESLint + Prettier; strict TS.
-* Vitest + React Testing Library.
 * Add `.env.example` and README setup steps.
 
 **Files (create/update)**
 
-* `package.json` (Bun scripts): `dev`, `build`, `start`, `test`, `lint`
+* `package.json` (Bun scripts): `dev`, `build`, `start`, `lint`
 * `app/layout.tsx`, `app/page.tsx`
 * `styles/globals.css`
 * `components/Toolbar.tsx` (placeholder)
-* `vitest.config.ts`
 * `.eslintrc.cjs`, `.prettierrc`
 * `.env.example`, `README.md`
 
-**Tests**
-
-* Integration (RTL): page loads with title and toolbar visible.
-* Unit: trivial component test for Toolbar.
-
 **Acceptance**
 
-* `bun dev` runs locally; CI green.
+* `bun dev` runs locally; lint passes.
 
 ---
 
@@ -105,11 +94,6 @@ firebase.rules.firestore
 * `lib/firebase.ts` (new)
 * `components/Toolbar.tsx` (update: auth buttons, avatar)
 * `app/page.tsx` (update: guard)
-* `__tests__/integration/auth.guard.test.tsx` (new)
-
-**Tests**
-
-* Integration: unauthenticated users see sign‑in pane; mock auth provides user and reveals canvas shell.
 
 **Acceptance**
 
@@ -132,11 +116,6 @@ firebase.rules.firestore
 * `app/api/liveblocks-auth/route.ts` (new)
 * `lib/liveblocks.ts` (new)
 * `app/page.tsx` (update: wrap editor with Liveblocks provider)
-* `__tests__/integration/liveblocks.token.test.ts` (new; route unit test)
-
-**Tests**
-
-* Route unit test: returns 200 for authed user; token payload scoped to `rooms/default`.
 
 **Acceptance**
 
@@ -162,11 +141,6 @@ firebase.rules.firestore
 * `components/ConnectionIndicator.tsx` (new)
 * `app/page.tsx` (update: mount Canvas)
 * `styles/globals.css` (update: editor sizing)
-* `__tests__/unit/canvas.mount.test.tsx` (new)
-
-**Tests**
-
-* Unit: editor mounts; viewport size stable; undo unavailable.
 
 **Acceptance**
 
@@ -189,13 +163,6 @@ firebase.rules.firestore
 * `lib/colors.ts` (new)
 * `components/PresenceAvatars.tsx` (new)
 * `components/Canvas.tsx` (update: cursor overlay render)
-* `__tests__/unit/colors.hash.test.ts` (new)
-* `__tests__/integration/presence.cursor.test.tsx` (new)
-
-**Tests**
-
-* Unit: same uid → same color across runs.
-* Integration: mock two clients → both cursors visible with labels.
 
 **Acceptance**
 
@@ -219,12 +186,6 @@ firebase.rules.firestore
 * `lib/schema.ts` (new; Shape zod + types)
 * `lib/store.ts` (new; reducers + adapters)
 * `components/Canvas.tsx` (update: rectangle tool wiring)
-* `__tests__/unit/store.reducers.test.ts` (new)
-* `__tests__/unit/schema.shape.test.ts` (new)
-
-**Tests**
-
-* Unit: reducers create/move/resize correctly; Zod catches invalid shapes.
 
 **Acceptance**
 
@@ -250,12 +211,6 @@ firebase.rules.firestore
 * `app/api/snapshot/route.ts` (new, optional)
 * `firebase.rules.firestore` (new)
 * `components/Toolbar.tsx` (update: Export JSON)
-* `__tests__/integration/snapshot.flow.test.ts` (new)
-
-**Tests**
-
-* Integration: make several edits → wait 10 s idle → Firestore contains expected shapes.
-* Rules dry‑run: invalid payload rejected.
 
 **Acceptance**
 
@@ -278,11 +233,6 @@ firebase.rules.firestore
 
 * `components/ConnectionIndicator.tsx` (update)
 * `app/layout.tsx` (update: analytics)
-* `__tests__/integration/perf.smoke.test.ts` (new; heuristic FPS check)
-
-**Tests**
-
-* Integration: 500 rects pan/zoom remains responsive (heuristic; no hard FPS in CI, but event loop timing threshold passes).
 
 **Acceptance**
 
@@ -305,9 +255,9 @@ firebase.rules.firestore
 * `README.md` (update: deploy steps)
 * Vercel project settings (external)
 
-**Tests**
+**Verification**
 
-* Manual QA against the preview URL (checklist); rely on integration tests where applicable.
+* Manual QA against the preview URL following the checklist.
 
 **Acceptance**
 
@@ -328,7 +278,6 @@ firebase.rules.firestore
 * `bun dev` — Next dev
 * `bun build` — Next build
 * `bun start` — Next start
-* `bun test` — Vitest
 * `bun lint` — ESLint
 
 ---
@@ -336,5 +285,4 @@ firebase.rules.firestore
 ## Definition of Done (MVP)
 
 * All acceptance criteria in PRD §16 met.
-* Key integration tests pass in CI (auth gating, presence/cursor, snapshot write/restore).
 * Deployed on Vercel; Google Auth functional; Liveblocks room join stable.
