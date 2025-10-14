@@ -160,7 +160,7 @@ firebase.rules.firestore
 
 * Presence: `updateMyPresence({ cursor })` throttled; `useOthers()` to render peers.
 * Deterministic color from `uid` hash; label from Firebase displayName.
-* Presence avatars component (optional list).
+* Presence avatars component and canvas overlay.
 
 **Files**
 
@@ -170,7 +170,7 @@ firebase.rules.firestore
 
 **Acceptance**
 
-* Opening two windows shows both cursors and labels within ~100–150 ms.
+* Opening two windows shows presence avatars and live cursors with labels within ~100–150 ms.
 
 ---
 

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import {
   useOthers,
   useSelf,
   useStatus,
   useUpdateMyPresence,
 } from "@liveblocks/react";
+import { colorFromUserId, getContrastColor } from "@/lib/colors";
 
 const STATUS_LABEL: Record<string, string> = {
   connecting: "Connecting…",
@@ -17,9 +18,29 @@ const STATUS_LABEL: Record<string, string> = {
   closed: "Disconnected",
 };
 
+function Avatar({
+  name,
+  color,
+  title,
+}: {
+  name: string;
+  color: string;
+  title?: string;
+}) {
+  const contrast = getContrastColor(color);
+  return (
+    <div
+      title={title ?? name}
+      className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold shadow-sm"
+      style={{ backgroundColor: color, color: contrast }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 export function LiveblocksPresenceSummary() {
   const status = useStatus();
-  const presenceLabel = STATUS_LABEL[status] ?? status;
   const self = useSelf();
   const others = useOthers();
   const updateMyPresence = useUpdateMyPresence();
@@ -28,45 +49,53 @@ export function LiveblocksPresenceSummary() {
     updateMyPresence({ state: "online" });
   }, [updateMyPresence]);
 
-  const othersLabel = useMemo(() => {
-    if (others.length === 0) {
-      return "You're the only one here";
-    }
-
-    const names = others
-      .map((other) => other.info?.name ?? "Anonymous")
-      .slice(0, 3);
-
-    const suffix = others.length > names.length ? "…" : "";
-
-    return `${names.join(", ")}${suffix}`;
-  }, [others]);
+  const allUsers = [
+    {
+      id: self?.id ?? "self",
+      name: self?.info?.name ?? self?.id ?? "You",
+      color: colorFromUserId(self?.id),
+      isSelf: true,
+    },
+    ...others.map((other) => ({
+      id: other.id,
+      name: other.info?.name ?? "Guest",
+      color: colorFromUserId(String(other.connectionId)),
+      isSelf: false,
+    })),
+  ];
 
   return (
-    <div className="rounded-lg border border-border/80 bg-background/70 p-4 text-left shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-        Live room status
-      </p>
-      <div className="mt-2 space-y-1 text-sm">
-        <p>
-          <span className="font-semibold text-foreground">Connection:</span>{" "}
-          <span className="text-muted-foreground">{presenceLabel}</span>
+    <div className="space-y-4 rounded-lg border border-border/80 bg-background/70 p-4 shadow-sm">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          Live room
         </p>
-        <p>
-          <span className="font-semibold text-foreground">You:</span>{" "}
-          <span className="text-muted-foreground">
-            {self?.info?.name ?? self?.id ?? "Unknown user"}
-          </span>
-        </p>
-        <p>
-          <span className="font-semibold text-foreground">Others:</span>{" "}
-          <span className="text-muted-foreground">
-            {others.length === 0
-              ? "No one else yet"
-              : `${others.length} online — ${othersLabel}`}
-          </span>
+        <p className="text-sm font-semibold text-foreground">
+          {STATUS_LABEL[status] ?? status}
         </p>
       </div>
+      <div className="flex items-center gap-2">
+        {allUsers.slice(0, 6).map((user) => (
+          <Avatar
+            key={user.id}
+            name={user.name}
+            color={user.color}
+            title={user.isSelf ? `${user.name} (you)` : user.name}
+          />
+        ))}
+        {allUsers.length > 6 ? (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 text-xs font-medium text-muted-foreground">
+            +{allUsers.length - 6}
+          </div>
+        ) : null}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {others.length === 0
+          ? "No collaborators yet. Invite someone to join!"
+          : others.length === 1
+            ? "One collaborator is live."
+            : `${others.length} collaborators are live.`}
+      </p>
     </div>
   );
 }
