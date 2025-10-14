@@ -121,6 +121,7 @@ firebase.rules.firestore
 **Acceptance**
 
 * Network call to `/api/liveblocks-auth` succeeds when signed in; client joins room without errors.
+* Manual checklist complete: Liveblocks env vars set, token endpoint returns 200 with Firebase ID token, unauthorized request yields 401.
 
 ---
 
