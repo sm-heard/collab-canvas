@@ -122,6 +122,7 @@ firebase.rules.firestore
 
 * Network call to `/api/liveblocks-auth` succeeds when signed in; client joins room without errors.
 * Manual checklist complete: Liveblocks env vars set, token endpoint returns 200 with Firebase ID token, unauthorized request yields 401.
+* Room-aware components (presence summary & shared counter) render only when authenticated and reflect cross-client updates.
 
 ---
 
@@ -147,6 +148,7 @@ firebase.rules.firestore
 **Acceptance**
 
 * User can pan/zoom/select at ≥55 FPS with empty doc.
+* tldraw surface renders inside authenticated view with placeholder hint overlay.
 
 ---
 

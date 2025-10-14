@@ -12,6 +12,7 @@
     "@liveblocks/client": "^3.8.1",
     "@liveblocks/node": "^3.8.1",
     "@liveblocks/react": "^3.8.1",
+    "@tldraw/tldraw": "^4.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "firebase": "^12.4.0",

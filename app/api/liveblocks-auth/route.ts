@@ -66,9 +66,9 @@ export async function POST(request: Request) {
 
     session.allow(roomId, session.FULL_ACCESS);
 
-    const token = await session.authorize();
+    const { status, body: responseBody } = await session.authorize();
 
-    return NextResponse.json(token);
+    return new Response(responseBody, { status });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to authorize Liveblocks session.";
     return NextResponse.json({ error: message }, { status: 500 });

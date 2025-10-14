@@ -1,9 +1,9 @@
 "use client";
 
 import { createClient } from "@liveblocks/client";
-import { createLiveblocksContext } from "@liveblocks/react";
-import { createRoomContext } from "@liveblocks/react";
+import { createLiveblocksContext, createRoomContext } from "@liveblocks/react";
 import { auth } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
 import { type ReactNode } from "react";
 
 const client = createClient({
@@ -41,6 +41,12 @@ const { LiveblocksProvider } = createLiveblocksContext(client);
 const { RoomProvider } = createRoomContext(client);
 
 export function LiveblocksRoomProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <>{children}</>;
+  }
+
   return (
     <LiveblocksProvider>
       <RoomProvider id="rooms/default">{children}</RoomProvider>

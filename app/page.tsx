@@ -1,17 +1,27 @@
 "use client";
 
 import Toolbar from "@/components/Toolbar";
+import Canvas from "@/components/Canvas";
+import LiveblocksPresenceSummary from "@/components/LiveblocksPresenceSummary";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function Home() {
   const { user, isLoading } = useAuth();
+  const showPresence = !isLoading && !!user;
 
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-muted/30 p-6">
       <Toolbar />
       <main className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-background/70 p-12 text-center shadow-inner">
-        <div className="max-w-lg space-y-4">
-          {isLoading ? (
+        <div
+          className={
+            showPresence
+              ? "flex w-full max-w-4xl flex-col gap-6 md:flex-row md:text-left"
+              : "max-w-lg space-y-4"
+          }
+        >
+          <div className={showPresence ? "flex-1 space-y-4" : "space-y-4"}>
+            {isLoading ? (
             <>
               <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">
                 Checking session…
@@ -48,6 +58,13 @@ export default function Home() {
               </p>
             </>
           )}
+          </div>
+          {showPresence ? (
+            <div className="w-full max-w-sm space-y-4">
+              <LiveblocksPresenceSummary />
+              <Canvas />
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
