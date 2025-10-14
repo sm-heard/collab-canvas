@@ -98,6 +98,7 @@ firebase.rules.firestore
 **Acceptance**
 
 * Visiting `/` prompts Google sign‑in when logged out; after sign‑in, canvas shell is visible.
+* Manual QA checklist (see README) executed for both login and logout flows.
 
 ---
 

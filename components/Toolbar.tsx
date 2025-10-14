@@ -1,12 +1,46 @@
-import Link from "next/link";
+"use client";
+
+import { useState, useTransition } from "react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 type ToolbarProps = {
   className?: string;
 };
 
 export function Toolbar({ className }: ToolbarProps) {
+  const { user, signIn, signOut, isLoading } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+
+  const handleSignIn = () => {
+    startTransition(async () => {
+      setError(null);
+      try {
+        await signIn();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to sign in";
+        setError(message);
+      }
+    });
+  };
+
+  const handleSignOut = () => {
+    startTransition(async () => {
+      setError(null);
+      try {
+        await signOut();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to sign out";
+        setError(message);
+      }
+    });
+  };
+
+  const isBusy = isLoading || isPending;
+
   return (
     <header
       className={cn(
@@ -21,14 +55,55 @@ export function Toolbar({ className }: ToolbarProps) {
           Multiplayer design experiments
         </h1>
       </div>
-      <nav aria-label="Primary" className="flex items-center gap-2">
-        <Link
-          href="#"
-          className="rounded-md border border-border/80 px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
-        >
-          Sign in
-        </Link>
-      </nav>
+      <div className="flex items-center gap-3">
+        {user ? (
+          <>
+            <div className="flex items-center gap-2">
+              {user.photoURL ? (
+                <Image
+                  src={user.photoURL}
+                  alt={user.displayName ?? "User avatar"}
+                  width={32}
+                  height={32}
+                  className="rounded-full border border-border/60"
+                />
+              ) : (
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border/60 bg-muted text-sm font-medium text-foreground">
+                  {(user.displayName ?? user.email ?? "?").charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="text-sm font-semibold text-foreground">
+                  {user.displayName ?? user.email ?? "Signed in"}
+                </span>
+                <span className="text-xs text-muted-foreground">Google account</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isBusy}
+              className="rounded-md border border-border/80 px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isBusy ? "Signing out…" : "Sign out"}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={handleSignIn}
+            disabled={isBusy}
+            className="rounded-md border border-border/80 px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isBusy ? "Signing in…" : "Sign in with Google"}
+          </button>
+        )}
+      </div>
+      {error ? (
+        <p className="sr-only" role="alert">
+          {error}
+        </p>
+      ) : null}
     </header>
   );
 }

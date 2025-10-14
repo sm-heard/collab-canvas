@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Collab Canvas
 
-## Getting Started
+Lightweight multiplayer canvas experiment built with Next.js App Router, Bun, and Liveblocks (coming soon). This readme documents environment setup, commands, and manual QA flows for the current milestone.
 
-First, run the development server:
+---
+
+## Prerequisites
+
+- [Bun](https://bun.sh/) ≥ 1.0
+- Node.js 20+ (for tooling compatibility)
+- Firebase project configured with Google Auth enabled
+
+---
+
+## Environment Setup
+
+Create a `.env.local` file with the following values (all prefixed with `NEXT_PUBLIC_` so they are available to the client):
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+NEXT_PUBLIC_FIREBASE_API_KEY="your-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your-project.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your-project-id"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:1234567890:web:abcdef"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="1234567890"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+These map to the Firebase config object in `lib/firebase.ts`. Without them, the UI will warn and sign-in will not work.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Commands
 
-## Learn More
+```bash
+bun install        # install dependencies
+bun dev            # start Next.js dev server (Turbopack)
+bun build          # Next.js production build
+bun start          # run compiled build
+bun lint           # ESLint with max warnings = 0
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Manual QA — PR-001 (Firebase Auth & Guard)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Ensure `.env.local` is configured with valid Firebase credentials and Google sign-in enabled.
+2. Run `bun dev` and open the local URL (defaults to `http://localhost:3000`).
+3. **Logged-out state**: the hero section should prompt for sign-in and the toolbar should show “Sign in with Google”.
+4. Click the sign-in button and complete the Google popup.
+5. **Logged-in state**: toolbar shows your avatar (or initial) and display name; hero copy updates to “You’re signed in and ready to create.”
+6. Refresh the page; the session should persist and re-render the signed-in state.
+7. Click “Sign out”; verify you return to the logged-out hero and button label.
+8. Repeat on a second browser profile to ensure multiple accounts can sign in sequentially without errors.
 
-## Deploy on Vercel
+Capture any issues or unexpected behavior in `tasks.md` under PR-001.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Roadmap Snapshot
+
+- PR-000: repo scaffold, linting, shadcn/ui
+- PR-001: Firebase auth (this milestone)
+- PR-002+: Liveblocks integration, canvas tooling, realtime presence
+
+See `tasks.md` and `prd.md` for detailed planning and acceptance criteria.
