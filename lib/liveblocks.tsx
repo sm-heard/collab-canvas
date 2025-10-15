@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@liveblocks/client";
+import { createClient, LiveMap } from "@liveblocks/client";
 import { createLiveblocksContext, createRoomContext } from "@liveblocks/react";
 import { auth } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,7 +49,14 @@ export function LiveblocksRoomProvider({ children }: { children: ReactNode }) {
 
   return (
     <LiveblocksProvider>
-      <RoomProvider id="rooms/default">{children}</RoomProvider>
+      <RoomProvider
+        id="rooms/default"
+        initialStorage={() => ({
+          shapes: new LiveMap(),
+        })}
+      >
+        {children}
+      </RoomProvider>
     </LiveblocksProvider>
   );
 }

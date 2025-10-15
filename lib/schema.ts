@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const jsonRectangleSchema = z.object({
   id: z.string(),
+  type: z.literal("geo"),
+  typeName: z.literal("shape"),
   parentId: z.string(),
   index: z.string(),
   x: z.number(),
@@ -12,7 +14,7 @@ export const jsonRectangleSchema = z.object({
     h: z.number(),
     fill: z.string().optional(),
     stroke: z.string().optional(),
-  }).passthrough(),
+  }).catchall(z.any()),
 });
 
 export const shapeMetadataSchema = z.object({

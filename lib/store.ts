@@ -4,7 +4,9 @@ import type { JsonRectangle } from "@/lib/schema";
 type ShapeId = JsonRectangle["id"];
 
 type ShapeDelta = {
-  shape: JsonRectangle;
+  action: "upsert" | "delete";
+  shapeId: ShapeId;
+  shape?: JsonRectangle;
   updatedAt: number;
   updatedBy: string | null;
 };
@@ -21,7 +23,7 @@ export const useShapeDeltaStore = create<DeltaState>((set, get) => ({
     set((state) => ({
       pending: {
         ...state.pending,
-        [delta.shape.id]: delta,
+        [delta.shapeId]: delta,
       },
     }));
   },
