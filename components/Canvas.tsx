@@ -13,17 +13,21 @@ import {
   useUpdateMyPresence,
 } from "@liveblocks/react";
 import {
-  StoreSnapshot,
+  getIndexAbove,
   TLGeoShape,
   TLGeoShapeProps,
+  TLParentId,
   TLRecord,
   TLShape,
   TLShapeId,
   TLShapePartial,
+  TLUnknownShape,
   Tldraw,
   createTLStore,
   defaultShapeUtils,
+  Editor,
 } from "@tldraw/tldraw";
+import type { RecordsDiff } from "@tldraw/store";
 import throttle from "lodash/throttle";
 import { colorFromUserId, getContrastColor } from "@/lib/colors";
 import type { JsonRectangle, ShapeMetadata } from "@/lib/schema";
@@ -62,17 +66,26 @@ function isCursorPoint(value: unknown): value is CursorPoint {
   );
 }
 
-function isRectangle(shape: TLShape): shape is TLGeoShape {
-  return shape.type === "geo" && shape.props.geo === "rectangle";
+function isRectangle(shape: TLUnknownShape | TLShape): shape is TLGeoShape {
+  if (shape.type !== "geo") {
+    return false;
+  }
+
+  const props = shape.props as Partial<TLGeoShapeProps> | undefined;
+  return props?.geo === "rectangle";
 }
 
 function shapeToJson(shape: TLGeoShape): JsonRectangle {
+  const parentId = (shape.parentId ?? "page:page") as TLParentId;
+  const indexValue = shape.index ?? getIndexAbove();
+  const indexString = typeof indexValue === "string" ? indexValue : String(indexValue);
+
   return {
     id: shape.id,
     type: "geo",
     typeName: "shape",
-    parentId: shape.parentId,
-    index: shape.index,
+    parentId,
+    index: indexString,
     x: shape.x,
     y: shape.y,
     rotation: shape.rotation ?? 0,
@@ -86,11 +99,16 @@ function shapeToJson(shape: TLGeoShape): JsonRectangle {
 }
 
 function jsonToPartial(json: JsonRectangle): TLShapePartial<TLGeoShape> {
+  const parentId = (json.parentId ?? "page:page") as TLParentId;
+  const indexValue = (json.index as TLShapePartial<TLGeoShape>["index"]) ?? getIndexAbove();
+  const fill = (json.props.fill ?? "solid") as TLGeoShapeProps["fill"];
+  const color = (json.props.stroke ?? "black") as TLGeoShapeProps["color"];
+
   return {
     id: json.id as TLShapeId,
     type: "geo",
-    parentId: json.parentId,
-    index: json.index,
+    parentId,
+    index: indexValue,
     x: json.x,
     y: json.y,
     rotation: json.rotation ?? 0,
@@ -98,8 +116,8 @@ function jsonToPartial(json: JsonRectangle): TLShapePartial<TLGeoShape> {
       geo: "rectangle",
       w: json.props.w,
       h: json.props.h,
-      fill: json.props.fill ?? "none",
-      color: json.props.stroke ?? "black",
+      fill,
+      color,
       dash: "draw",
       size: "m",
       font: "draw",
@@ -248,11 +266,12 @@ export function Canvas() {
     }
 
     const dispose = editor.store.listen(
-      ({ changes }: { changes: StoreSnapshot<TLRecord> }) => {
+      ({ changes }: { changes: RecordsDiff<TLRecord> }) => {
         const now = Date.now();
         const updatedBy = user?.uid ?? null;
 
-        Object.values(changes.added).forEach((record) => {
+        const addedRecords = Object.values(changes.added ?? {}) as TLRecord[];
+        addedRecords.forEach((record) => {
           if (record.typeName !== "shape") {
             return;
           }
@@ -269,7 +288,8 @@ export function Canvas() {
           });
         });
 
-        Object.values(changes.updated).forEach(([, next]) => {
+        const updatedRecords = Object.values(changes.updated ?? {}) as [TLRecord, TLRecord][];
+        updatedRecords.forEach(([, next]) => {
           if (next.typeName !== "shape") {
             return;
           }
@@ -286,7 +306,8 @@ export function Canvas() {
           });
         });
 
-        Object.values(changes.removed).forEach((record) => {
+        const removedRecords = Object.values(changes.removed ?? {}) as TLRecord[];
+        removedRecords.forEach((record) => {
           if (record.typeName !== "shape") {
             return;
           }
@@ -325,7 +346,7 @@ export function Canvas() {
       seenIds.add(id);
       const { shape, updatedAt } = record;
 
-      if (shadowRef.current.get(id) >= updatedAt) {
+      if ((shadowRef.current.get(id) ?? 0) >= updatedAt) {
         return;
       }
 
