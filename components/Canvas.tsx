@@ -2,7 +2,7 @@
 
 import "@tldraw/tldraw/tldraw.css";
 
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useOthers, useUpdateMyPresence } from "@liveblocks/react";
 import { Tldraw, createTLStore, defaultShapeUtils } from "@tldraw/tldraw";
 import { colorFromUserId, getContrastColor } from "@/lib/colors";
@@ -24,15 +24,10 @@ function isCursorPoint(value: unknown): value is CursorPoint {
 }
 
 export function Canvas() {
-  const store = useMemo(() => {
-    return createTLStore({
-      shapeUtils: defaultShapeUtils,
-    });
-  }, []);
-
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const store = useMemo(() => createTLStore({ shapeUtils: defaultShapeUtils }), []);
   const others = useOthers();
   const updateMyPresence = useUpdateMyPresence();
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     updateMyPresence({ cursor: null });
@@ -65,7 +60,7 @@ export function Canvas() {
       onPointerLeave={clearCursor}
       onPointerUp={clearCursor}
     >
-      <Tldraw store={store} autoFocus hideUi />
+      <Tldraw store={store} autoFocus hideUi={false} className="tldraw-theme-light" />
       <div className="pointer-events-none absolute inset-0">
         {others
           .map((other) => {
@@ -83,10 +78,7 @@ export function Canvas() {
               <div
                 key={other.connectionId}
                 className="pointer-events-none absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
-                style={{
-                  left: cursor.x,
-                  top: cursor.y,
-                }}
+                style={{ left: cursor.x, top: cursor.y }}
               >
                 <div
                   className="h-3 w-3 rotate-45 rounded-sm shadow-sm"
