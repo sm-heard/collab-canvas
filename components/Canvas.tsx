@@ -220,7 +220,7 @@ export function Canvas() {
   useEffect(() => {
     return () => {
       throttledFlush.cancel();
-      if (storageRoot && queueRef.current.size > 0) {
+      if (storageRoot) {
         flushPending();
       }
     };
@@ -248,7 +248,7 @@ export function Canvas() {
     }
 
     const dispose = editor.store.listen(
-      ({ changes }: { changes: Snapshot<TLRecord> }) => {
+      ({ changes }: { changes: StoreSnapshot<TLRecord> }) => {
         const now = Date.now();
         const updatedBy = user?.uid ?? null;
 
@@ -269,7 +269,7 @@ export function Canvas() {
           });
         });
 
-        Object.values(changes.updated).forEach(([_, next]) => {
+        Object.values(changes.updated).forEach(([, next]) => {
           if (next.typeName !== "shape") {
             return;
           }
