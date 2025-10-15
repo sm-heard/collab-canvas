@@ -413,6 +413,7 @@ export function Canvas() {
       onPointerUp={clearCursor}
     >
       <Tldraw
+      licenseKey={process.env.NEXT_PUBLIC_TLDRAW_LICENSE_KEY}
         store={store}
         autoFocus
         hideUi={false}
