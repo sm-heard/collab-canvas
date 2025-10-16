@@ -1,4 +1,4 @@
-# Collab Canvas — MVP Task & PR Plan (v1)
+# Pulseboard — MVP Task & PR Plan (v1)
 
 **Owner:** Sami
 **Date:** Oct 14, 2025

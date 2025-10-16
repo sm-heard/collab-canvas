@@ -9,7 +9,6 @@ import {
   useOthers,
   useStorage,
   useStorageRoot,
-  useStatus,
   useUpdateMyPresence,
 } from "@liveblocks/react";
 import {
@@ -142,7 +141,6 @@ export function Canvas() {
   const { user } = useAuth();
   const others = useOthers();
   const updateMyPresence = useUpdateMyPresence();
-  const status = useStatus();
 
   const [storageRoot] = useStorageRoot();
   const shapeEntries = useStorage((root) => {
@@ -407,7 +405,7 @@ export function Canvas() {
   return (
     <div
       ref={containerRef}
-      className="relative flex h-[560px] w-full flex-1 overflow-hidden rounded-2xl border border-border/80 bg-background shadow-inner"
+      className="relative flex h-full w-full flex-1 overflow-hidden rounded-2xl border border-border/80 bg-background shadow-inner"
       onPointerMove={handlePointerMove}
       onPointerLeave={clearCursor}
       onPointerUp={clearCursor}
@@ -452,17 +450,6 @@ export function Canvas() {
             );
           })
           .filter(Boolean)}
-      </div>
-      <div className="pointer-events-none absolute bottom-4 right-4 max-w-xs rounded-lg bg-background/90 px-4 py-2 text-xs font-medium text-muted-foreground shadow-sm">
-        <p className="font-semibold text-foreground">Canvas preview</p>
-        <p>
-          Draw rectangles, select with <span className="font-semibold">V</span>, and pan with
-          <span className="font-semibold"> Space</span>.
-        </p>
-      </div>
-      <div className="pointer-events-none absolute bottom-4 left-4 max-w-xs rounded-lg bg-background/90 px-4 py-2 text-xs font-medium text-muted-foreground shadow-sm">
-        <p className="font-semibold text-foreground">Realtime sync</p>
-        <p>Status: {status}</p>
       </div>
     </div>
   );

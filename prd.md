@@ -1,4 +1,4 @@
-# Collab Canvas — MVP PRD (v1)
+# Pulseboard — MVP PRD (v1)
 
 **Owner:** Sami
 **Date:** Oct 14, 2025

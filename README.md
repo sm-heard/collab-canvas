@@ -1,4 +1,4 @@
-## Collab Canvas
+## Pulseboard
 
 Lightweight multiplayer canvas experiment built with Next.js App Router, Bun, and Liveblocks (coming soon). This readme documents environment setup, commands, and manual QA flows for the current milestone.
 

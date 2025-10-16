@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Collab Canvas",
+  title: "Pulseboard",
   description:
     "A lightweight multiplayer design canvas with real-time collaboration.",
 };

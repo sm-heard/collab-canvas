@@ -49,11 +49,13 @@ export function Toolbar({ className }: ToolbarProps) {
       )}
       role="banner"
     >
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-medium text-muted-foreground">Collab Canvas</p>
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          Multiplayer design experiments
-        </h1>
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-lg font-bold text-white shadow-sm">
+          PB
+        </div>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pulseboard</h1>
+        </div>
       </div>
       <div className="flex items-center gap-3">
         {user ? (
