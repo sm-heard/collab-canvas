@@ -285,8 +285,3 @@ firebase.rules.firestore
 * `bun lint` — ESLint
 
 ---
-
-## Definition of Done (MVP)
-
-* All acceptance criteria in PRD §16 met.
-* Deployed on Vercel; Google Auth functional; Liveblocks room join stable.
