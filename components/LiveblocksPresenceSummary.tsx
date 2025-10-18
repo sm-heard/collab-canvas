@@ -51,13 +51,13 @@ export function LiveblocksPresenceSummary() {
 
   const allUsers = [
     {
-      id: self?.id ?? "self",
+      id: `self-${self?.id ?? "self"}`,
       name: self?.info?.name ?? self?.id ?? "You",
       color: colorFromUserId(self?.id),
       isSelf: true,
     },
     ...others.map((other) => ({
-      id: other.id,
+      id: `other-${other.connectionId}`,
       name: other.info?.name ?? "Guest",
       color: colorFromUserId(String(other.connectionId)),
       isSelf: false,

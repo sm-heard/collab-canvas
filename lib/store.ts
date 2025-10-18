@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { JsonShape } from "@/lib/schema";
+import type { AiCommandSummary, AiCommandStatus } from "@/lib/ai/types";
 
 type ShapeId = JsonShape["id"];
 
@@ -16,6 +17,42 @@ type DeltaState = {
   queueDelta: (delta: ShapeDelta) => void;
   takeDeltas: () => ShapeDelta[];
 };
+
+type AiCommandHistoryEntry = AiCommandSummary & { startedAt: number };
+
+type UiState = {
+  aiTrayOpen: boolean;
+  aiCommandStatus: AiCommandStatus;
+  aiHistory: AiCommandHistoryEntry[];
+  toggleAiTray: (open?: boolean) => void;
+  addAiHistoryEntry: (entry: AiCommandSummary) => void;
+  updateAiHistoryEntry: (commandId: string, partial: Partial<AiCommandSummary>) => void;
+  clearAiHistory: () => void;
+  setAiCommandStatus: (status: AiCommandStatus) => void;
+};
+
+export const useUiStore = create<UiState>((set) => ({
+  aiTrayOpen: false,
+  aiCommandStatus: "idle",
+  aiHistory: [],
+  toggleAiTray: (open) =>
+    set((state) => ({ aiTrayOpen: open ?? !state.aiTrayOpen })),
+  addAiHistoryEntry: (entry) =>
+    set((state) => ({
+      aiHistory: [
+        { ...entry, startedAt: Date.now() },
+        ...state.aiHistory,
+      ].slice(0, 20),
+    })),
+  updateAiHistoryEntry: (commandId, partial) =>
+    set((state) => ({
+      aiHistory: state.aiHistory.map((item) =>
+        item.commandId === commandId ? { ...item, ...partial } : item,
+      ),
+    })),
+  clearAiHistory: () => set({ aiHistory: [] }),
+  setAiCommandStatus: (status) => set({ aiCommandStatus: status }),
+}));
 
 export const useShapeDeltaStore = create<DeltaState>((set, get) => ({
   pending: {},
@@ -35,3 +72,4 @@ export const useShapeDeltaStore = create<DeltaState>((set, get) => ({
 }));
 
 export type { ShapeDelta };
+export type { AiCommandHistoryEntry };

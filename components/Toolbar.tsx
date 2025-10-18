@@ -2,9 +2,11 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
+import { Bot } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useUiStore } from "@/lib/store";
 
 type ToolbarProps = {
   className?: string;
@@ -12,6 +14,8 @@ type ToolbarProps = {
 
 export function Toolbar({ className }: ToolbarProps) {
   const { user, signIn, signOut, isLoading } = useAuth();
+  const aiTrayOpen = useUiStore((state) => state.aiTrayOpen);
+  const toggleAiTray = useUiStore((state) => state.toggleAiTray);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -60,6 +64,19 @@ export function Toolbar({ className }: ToolbarProps) {
       <div className="flex items-center gap-3">
         {user ? (
           <>
+            <button
+              type="button"
+              onClick={() => toggleAiTray()}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md border border-border/80 px-3 py-2 text-sm font-medium transition",
+                aiTrayOpen
+                  ? "bg-purple-600 text-white shadow hover:bg-purple-700"
+                  : "text-foreground hover:bg-muted",
+              )}
+            >
+              <Bot className="h-4 w-4" />
+              <span>Ask AI</span>
+            </button>
             <div className="flex items-center gap-2">
               {user.photoURL ? (
                 <Image

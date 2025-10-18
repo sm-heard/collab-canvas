@@ -44,6 +44,18 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 These power the Liveblocks token endpoint (`app/api/liveblocks-auth/route.ts`) by validating Firebase ID tokens via the Admin SDK before minting Liveblocks session tokens.
 
+- `AI_MODEL` (e.g., `gpt-4.1-mini`)
+- `AI_API_KEY`
+- `AI_RESPONSE_TIMEOUT_MS` (optional, defaults to 5000 ms)
+
+Add these to `.env.local` alongside the existing Firebase/Liveblocks values:
+
+```bash
+AI_MODEL="gpt-4.1-mini"
+AI_API_KEY="sk_your_key"
+AI_RESPONSE_TIMEOUT_MS="5000"
+```
+
 ---
 
 ## Commands
@@ -56,6 +68,6 @@ bun start          # run compiled build
 bun lint           # ESLint with max warnings = 0
 ```
 
+- `bun test` — Playwright/Jest (if configured)
 
-
-See `tasks.md` and `prd.md` for detailed planning and acceptance criteria.
+See `tasks.md` and `prd.md`

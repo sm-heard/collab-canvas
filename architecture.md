@@ -3,13 +3,15 @@ graph TB
   subgraph CLIENT["Browser / Frontend (Next.js + React)"]
     A[app/page.tsx<br/>Canvas route]
     B[components/Canvas.tsx<br/>tldraw editor]
-    C[components/Toolbar.tsx<br/>Auth + Export]
+    C[components/Toolbar.tsx<br/>Auth + Export + AI entry]
+    C2[components/AiCommandTray.tsx<br/>Prompt & history]
     D[components/PresenceAvatars.tsx]
     E[lib/store.ts<br/>Zustand (local UI state)]
     F[lib/colors.ts<br/>uid → color hash]
     G[lib/schema.ts<br/>Zod: Shape/Snapshot]
-    H[lib/liveblocks.ts<br/>client provider/hooks]
+    H[lib/liveblocks.tsx<br/>client provider/hooks]
     I[lib/firebase.ts<br/>Firebase init (client)]
+    AI1[lib/ai/types.ts<br/>Shared AI contracts]
     J1[Vercel Analytics (optional)]
     J2[Sentry SDK (optional)]
   end
@@ -18,7 +20,10 @@ graph TB
   subgraph SERVER["Next.js Server (Vercel Functions)"]
     S1[/api/liveblocks-auth/route.ts<br/>Mint room-scoped token/]
     S2[/api/snapshot/route.ts<br/>(optional) server snapshot/]
+    S3[/api/ai/command/route.ts<br/>AI orchestrator (Edge)]
+    AI2[lib/ai/commands.ts<br/>Canvas command adapter]
     ENV1[[ENV: LIVEBLOCKS_SECRET]]
+    ENV2[[ENV: AI_MODEL, AI_API_KEY]]
   end
 
   %% ========= EXTERNAL SERVICES =========
@@ -27,6 +32,7 @@ graph TB
     LBP[(Liveblocks Presence)]
     FA[(Firebase Auth<br/>Google provider)]
     FS[(Firestore<br/>Durable snapshots)]
+    AIAPI[(Vercel AI SDK<br/>OpenAI/Anthropic models)]
   end
 
   %% ========= TOOLING / RUNTIME =========
@@ -41,6 +47,9 @@ graph TB
   A --> B
   A --> C
   C --> I
+  C --> C2
+  C2 --> E
+  C2 --> AI1
   B <--> E
   E --> G
   A --> H
@@ -54,12 +63,22 @@ graph TB
 
   %% ========= LIVEBLOCKS FLOW =========
   A -->|GET /api/liveblocks-auth| S1
-  S1 -->|scopes token to room: \"rooms/default\"| LB
+  S1 -->|scopes token to room: "rooms/default"| LB
   S1 --> ENV1
   H -->|join room w/ token| LB
   H <-->|presence updates| LBP
   B -->|edits → minimal deltas| H
   H -->|CRDT storage updates| LB
+
+  %% ========= AI FLOW =========
+  C2 -->|submit prompt| S3
+  S3 --> ENV2
+  S3 --> AIAPI
+  S3 --> AI2
+  AI2 -->|mutations| LB
+  S3 -->|streamed events| C2
+  AI2 -->|read state| LB
+  AI2 -->|snapshot integration| FS
 
   %% ========= SNAPSHOTS (HARD 10s IDLE) =========
   A -.->|after 10s idle (throttle)| FS
@@ -70,6 +89,7 @@ graph TB
   T4 --> A
   T4 --> S1
   T4 --> S2
+  T4 --> S3
   T3 --> A
   T0 --> A
   T2 --> A
@@ -86,4 +106,5 @@ graph TB
     L2[Dashed arrows: optional paths (snapshot via API or client direct)]
     L3[Single shared room: <code>rooms/default</code>]
     L4[Auth gate: Google only]
+    L5[New AI components highlighted]
   end

@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "test": "bun test"
   },
   "dependencies": {
     "@liveblocks/client": "^3.8.1",
@@ -27,7 +28,9 @@
     "tailwindcss-animate": "^1.0.7",
     "usehooks-ts": "^3.1.1",
     "zod": "^4.1.12",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "ai": "^5.0.76",
+    "framer-motion": "^12.23.24"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
