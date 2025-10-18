@@ -61,22 +61,26 @@ export function Toolbar({ className }: ToolbarProps) {
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pulseboard</h1>
         </div>
       </div>
+      <div className="flex flex-1 items-center justify-center">
+        {user ? (
+          <button
+            type="button"
+            onClick={() => toggleAiTray()}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md border border-border/80 px-3 py-2 text-sm font-medium transition",
+              aiTrayOpen
+                ? "bg-purple-600 text-white shadow hover:bg-purple-700"
+                : "text-foreground hover:bg-muted",
+            )}
+          >
+            <Bot className="h-4 w-4" />
+            <span>Ask AI</span>
+          </button>
+        ) : null}
+      </div>
       <div className="flex items-center gap-3">
         {user ? (
           <>
-            <button
-              type="button"
-              onClick={() => toggleAiTray()}
-              className={cn(
-                "inline-flex items-center gap-2 rounded-md border border-border/80 px-3 py-2 text-sm font-medium transition",
-                aiTrayOpen
-                  ? "bg-purple-600 text-white shadow hover:bg-purple-700"
-                  : "text-foreground hover:bg-muted",
-              )}
-            >
-              <Bot className="h-4 w-4" />
-              <span>Ask AI</span>
-            </button>
             <div className="flex items-center gap-2">
               {user.photoURL ? (
                 <Image

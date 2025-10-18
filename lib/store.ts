@@ -24,17 +24,20 @@ type UiState = {
   aiTrayOpen: boolean;
   aiCommandStatus: AiCommandStatus;
   aiHistory: AiCommandHistoryEntry[];
+  aiActiveUser?: { userId: string; prompt: string; status: "running" | "error"; message?: string } | null;
   toggleAiTray: (open?: boolean) => void;
   addAiHistoryEntry: (entry: AiCommandSummary) => void;
   updateAiHistoryEntry: (commandId: string, partial: Partial<AiCommandSummary>) => void;
   clearAiHistory: () => void;
   setAiCommandStatus: (status: AiCommandStatus) => void;
+  setAiActiveUser: (payload: { userId: string; prompt: string; status: "running" | "error"; message?: string } | null) => void;
 };
 
 export const useUiStore = create<UiState>((set) => ({
   aiTrayOpen: false,
   aiCommandStatus: "idle",
   aiHistory: [],
+  aiActiveUser: null,
   toggleAiTray: (open) =>
     set((state) => ({ aiTrayOpen: open ?? !state.aiTrayOpen })),
   addAiHistoryEntry: (entry) =>
@@ -52,6 +55,7 @@ export const useUiStore = create<UiState>((set) => ({
     })),
   clearAiHistory: () => set({ aiHistory: [] }),
   setAiCommandStatus: (status) => set({ aiCommandStatus: status }),
+  setAiActiveUser: (payload) => set({ aiActiveUser: payload }),
 }));
 
 export const useShapeDeltaStore = create<DeltaState>((set, get) => ({

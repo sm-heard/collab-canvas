@@ -3,6 +3,7 @@
 import Toolbar from "@/components/Toolbar";
 import Canvas from "@/components/Canvas";
 import LiveblocksPresenceSummary from "@/components/LiveblocksPresenceSummary";
+import AiCommandTray from "@/components/AiCommandTray";
 import { useAuth } from "@/hooks/useAuth";
 import { useStatus } from "@liveblocks/react";
 
@@ -29,6 +30,11 @@ export default function Home() {
       <Toolbar />
       <main className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-dashed border-border/80 bg-background/70 p-0 shadow-inner">
         {showPresence ? <PresenceOverlay /> : null}
+        {showPresence ? (
+          <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2">
+            <AiCommandTray />
+          </div>
+        ) : null}
         <div className="flex h-full w-full flex-1 flex-col md:flex-row">
           <div className={showPresence ? "hidden space-y-4 p-12 md:block md:w-80" : "mx-auto max-w-lg space-y-4 p-12 text-center"}>
             {isLoading ? (

@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Bot, Undo2, Trash2 } from "lucide-react";
+import { Send, Loader2, Bot, Undo2, Trash2, RotateCcw } from "lucide-react";
 import { nanoid } from "nanoid";
 
 import { cn } from "@/lib/utils";
 import type { AiCommandSummary, AiCommandStreamEvent } from "@/lib/ai/types";
 import { useUiStore } from "@/lib/store";
+import { useAuth } from "@/hooks/useAuth";
+import { auth } from "@/lib/firebase";
+import { useCanvasHistory } from "@/hooks/useCanvasHistory";
 
 function formatDuration(ms?: number) {
   if (!ms) return "--";
@@ -15,14 +18,14 @@ function formatDuration(ms?: number) {
   return `${(ms / 1000).toFixed(1)} s`;
 }
 
-async function fetchAiStream(prompt: string, token: string) {
+async function fetchAiStream(payload: object, token: string) {
   const response = await fetch("/api/ai/command", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok || !response.body) {
@@ -50,7 +53,7 @@ function parseSseChunk(chunk: string): AiCommandStreamEvent | null {
   }
 
   try {
-    const parsed = JSON.parse(data) as { status?: string; message?: string; durationMs?: number };
+    const parsed = JSON.parse(data) as { status?: string; message?: string; durationMs?: number; result?: unknown };
     switch (eventType) {
       case "init":
         return {
@@ -91,32 +94,36 @@ function parseSseChunk(chunk: string): AiCommandStreamEvent | null {
 }
 
 export function AiCommandTray() {
-  const {
-    aiTrayOpen,
-    aiHistory,
-    aiCommandStatus,
-    toggleAiTray,
-    addAiHistoryEntry,
-    updateAiHistoryEntry,
-    clearAiHistory,
-    setAiCommandStatus,
-  } = useUiStore((state) => ({
-    aiTrayOpen: state.aiTrayOpen,
-    aiHistory: state.aiHistory,
-    aiCommandStatus: state.aiCommandStatus,
-    toggleAiTray: state.toggleAiTray,
-    addAiHistoryEntry: state.addAiHistoryEntry,
-    updateAiHistoryEntry: state.updateAiHistoryEntry,
-    clearAiHistory: state.clearAiHistory,
-    setAiCommandStatus: state.setAiCommandStatus,
-  }));
+  const aiTrayOpen = useUiStore((state) => state.aiTrayOpen);
+  const aiHistory = useUiStore((state) => state.aiHistory);
+  const aiCommandStatus = useUiStore((state) => state.aiCommandStatus);
+  const toggleAiTray = useUiStore((state) => state.toggleAiTray);
+  const addAiHistoryEntry = useUiStore((state) => state.addAiHistoryEntry);
+  const updateAiHistoryEntry = useUiStore((state) => state.updateAiHistoryEntry);
+  const clearAiHistory = useUiStore((state) => state.clearAiHistory);
+  const setAiCommandStatus = useUiStore((state) => state.setAiCommandStatus);
+  const setAiActiveUser = useUiStore((state) => state.setAiActiveUser);
+  const { user } = useAuth();
+  const { revertLastAiCommand, canRevertAi } = useCanvasHistory();
   const [prompt, setPrompt] = useState("");
   const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
   const [streamMessages, setStreamMessages] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<boolean>(false);
 
   const canSubmit = prompt.trim().length > 0 && !isStreaming;
+
+  const buildPayload = useCallback((text: string) => {
+    if (layoutMode) {
+      return {
+        prompt: text,
+        composite: "loginForm",
+        origin: { x: 200, y: 200 },
+      };
+    }
+    return { prompt: text };
+  }, [layoutMode]);
 
   const handleClose = useCallback(() => {
     toggleAiTray(false);
@@ -143,24 +150,19 @@ export function AiCommandTray() {
       setErrorMessage(null);
       setIsStreaming(true);
       setAiCommandStatus("thinking");
+      if (user?.uid) {
+        setAiActiveUser({ userId: user.uid, prompt: trimmed, status: "running" });
+      }
 
       try {
-        const tokenResponse = await fetch("/api/liveblocks-auth", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${(await window.firebaseAuth?.currentUser?.getIdToken?.()) ?? ""}`,
-          },
-        });
-        if (!tokenResponse.ok) {
-          throw new Error("Failed to authenticate AI request.");
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error("User is not authenticated.");
         }
+        const idToken = await currentUser.getIdToken();
 
-        const idToken = await window.firebaseAuth?.currentUser?.getIdToken();
-        if (!idToken) {
-          throw new Error("Unable to retrieve auth token.");
-        }
-
-        const reader = await fetchAiStream(trimmed, idToken);
+        const payload = buildPayload(trimmed);
+        const reader = await fetchAiStream(payload, idToken);
         const decoder = new TextDecoder();
 
         while (true) {
@@ -179,6 +181,9 @@ export function AiCommandTray() {
               setStreamMessages((prev) => [...prev, event.message!]);
               setAiCommandStatus(event.status);
               updateAiHistoryEntry(commandId, { status: event.status });
+              if (user?.uid) {
+                setAiActiveUser({ userId: user.uid, prompt: trimmed, status: "running" });
+              }
             }
 
             if (event.type === "summary" && event.summary) {
@@ -187,12 +192,21 @@ export function AiCommandTray() {
                 durationMs: event.summary.durationMs,
               });
               setAiCommandStatus("idle");
+              setAiActiveUser(null);
             }
 
             if (event.type === "error" && event.message) {
               setErrorMessage(event.message);
               updateAiHistoryEntry(commandId, { status: "error" });
               setAiCommandStatus("error");
+              if (user?.uid) {
+                setAiActiveUser({
+                  userId: user.uid,
+                  prompt: trimmed,
+                  status: "error",
+                  message: event.message,
+                });
+              }
             }
           }
         }
@@ -201,9 +215,13 @@ export function AiCommandTray() {
         setErrorMessage(message);
         updateAiHistoryEntry(commandId, { status: "error" });
         setAiCommandStatus("error");
+        if (user?.uid) {
+          setAiActiveUser({ userId: user.uid, prompt: trimmed, status: "error", message });
+        }
       } finally {
         setIsStreaming(false);
         setActiveCommandId(null);
+        setAiActiveUser(null);
       }
     },
     [
@@ -212,6 +230,9 @@ export function AiCommandTray() {
       addAiHistoryEntry,
       setAiCommandStatus,
       updateAiHistoryEntry,
+      buildPayload,
+      setAiActiveUser,
+      user?.uid,
     ],
   );
 
@@ -280,17 +301,30 @@ export function AiCommandTray() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex items-end gap-2">
-            <label htmlFor="aiPrompt" className="sr-only">
-              Ask the AI to edit the canvas
-            </label>
-            <textarea
-              id="aiPrompt"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Ask the AI to create a login form, align shapes, or tidy the layout…"
-              rows={2}
-              className="flex-1 resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-inner outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
-            />
+            <div className="flex flex-1 flex-col gap-2">
+              <label htmlFor="aiPrompt" className="sr-only">
+                Ask the AI to edit the canvas
+              </label>
+              <textarea
+                id="aiPrompt"
+                value={prompt}
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder="Ask the AI to create a login form, align shapes, or tidy the layout…"
+                rows={2}
+                className="flex-1 resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-inner outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layoutMode}
+                    onChange={(event) => setLayoutMode(event.target.checked)}
+                    className="h-3 w-3 rounded border-border/60"
+                  />
+                  Produce composite layout (login form)
+                </label>
+              </div>
+            </div>
             <button
               type="submit"
               disabled={!canSubmit}
@@ -385,18 +419,28 @@ export function AiCommandTray() {
             </ul>
           </div>
 
-          <div className="flex items-center justify_between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <Undo2 className="h-3 w-3" />
               <span>Undo AI actions via `Cmd+Z` after execution.</span>
             </div>
-            <button
-              type="button"
-              onClick={handleClose}
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-            >
-              Close
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={revertLastAiCommand}
+                disabled={!canRevertAi}
+                className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RotateCcw className="h-3 w-3" /> Revert last AI action
+              </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </motion.aside>
       ) : null}

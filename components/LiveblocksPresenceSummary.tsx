@@ -8,6 +8,8 @@ import {
   useUpdateMyPresence,
 } from "@liveblocks/react";
 import { colorFromUserId, getContrastColor } from "@/lib/colors";
+import { useUiStore } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<string, string> = {
   connecting: "Connecting…",
@@ -44,6 +46,7 @@ export function LiveblocksPresenceSummary() {
   const self = useSelf();
   const others = useOthers();
   const updateMyPresence = useUpdateMyPresence();
+  const aiActiveUser = useUiStore((state) => state.aiActiveUser);
 
   useEffect(() => {
     updateMyPresence({ state: "online" });
@@ -89,6 +92,21 @@ export function LiveblocksPresenceSummary() {
           </div>
         ) : null}
       </div>
+      {aiActiveUser ? (
+        <div
+          className={cn(
+            "rounded-lg border border-dashed px-3 py-2 text-xs",
+            aiActiveUser.status === "error"
+              ? "border-rose-400 bg-rose-50 text-rose-700"
+              : "border-purple-400 bg-purple-50 text-purple-700",
+          )}
+        >
+          <span className="font-semibold">
+            AI agent {aiActiveUser.status === "error" ? "encountered an issue" : "running"}
+          </span>
+          {aiActiveUser.message ? ` — ${aiActiveUser.message}` : ` — ${aiActiveUser.prompt}`}
+        </div>
+      ) : null}
       <p className="text-xs text-muted-foreground">
         {others.length === 0
           ? "No collaborators yet. Invite someone to join!"

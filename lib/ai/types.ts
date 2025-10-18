@@ -69,6 +69,9 @@ export interface CanvasShapeSummary {
 export type AiToolParams = {
   getCanvasState: { minimal?: boolean };
   createShape: {
+    id?: string;
+    parentId?: string;
+    index?: string;
     type: "rect" | "circle" | "text" | "group";
     x: number;
     y: number;
