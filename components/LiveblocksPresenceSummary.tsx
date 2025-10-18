@@ -47,6 +47,7 @@ export function LiveblocksPresenceSummary() {
   const others = useOthers();
   const updateMyPresence = useUpdateMyPresence();
   const aiActiveUser = useUiStore((state) => state.aiActiveUser);
+  const lastAiSnapshotAt = useUiStore((state) => state.lastAiSnapshotAt);
 
   useEffect(() => {
     updateMyPresence({ state: "online" });
@@ -106,6 +107,11 @@ export function LiveblocksPresenceSummary() {
           </span>
           {aiActiveUser.message ? ` — ${aiActiveUser.message}` : ` — ${aiActiveUser.prompt}`}
         </div>
+      ) : null}
+      {lastAiSnapshotAt ? (
+        <p className="text-xs text-muted-foreground">
+          Last AI snapshot recorded {new Date(lastAiSnapshotAt).toLocaleTimeString()}.
+        </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
         {others.length === 0

@@ -36,19 +36,10 @@ function withAiMetadata(shape: JsonShape, userId: string, commandId: string, now
   } as JsonShape;
 }
 
-async function setShape(shape: JsonShape, userId: string, commandId: string, now: number) {
+async function mutateStorage(mutator: (root: StorageRoot) => void) {
   const client = assertLiveblocks();
-  const metadata: ShapeMetadata = {
-    shape: withAiMetadata(shape, userId, commandId, now),
-    updatedAt: now,
-    updatedBy: userId,
-  };
-
-  await client.updateRoomStorage(ROOM_ID, ({ set, getUndoManager }) => {
-    const undoManager = getUndoManager?.();
-    undoManager?.batch(() => {
-      set(["shapes", shape.id], metadata);
-    });
+  await client.mutateStorage(ROOM_ID, ({ root }) => {
+    mutator(root as StorageRoot);
   });
 }
 
@@ -57,7 +48,7 @@ const LOCK_TTL_MS = 5000;
 const MAX_RETRY_ATTEMPTS = 3;
 const BASE_RETRY_DELAY_MS = 200;
 
-function acquireLock(shapeId: string, userId: string) {
+function acquireLock(shapeId: string) {
   const now = Date.now();
   const expiresAt = lockMap.get(shapeId);
   if (expiresAt && expiresAt > now) {
@@ -70,53 +61,34 @@ function releaseLock(shapeId: string) {
   lockMap.delete(shapeId);
 }
 
-async function withUndo<T>(shapeIds: string[], userId: string, fn: () => Promise<T>): Promise<T> {
-  const client = assertLiveblocks();
-  return client.updateRoomStorage(ROOM_ID, async (ctx) => {
-    const undoManager = ctx.getUndoManager?.();
-    undoManager?.batchStart();
-    try {
-      const result = await fn();
-      undoManager?.batchEnd();
-      return result;
-    } catch (error) {
-      undoManager?.batchEnd();
-      throw error;
-    }
-  });
-}
-
-async function withRetryAndUndo<T>(shapeIds: string[], userId: string, fn: (ctx: Parameters<Liveblocks["updateRoomStorage"]>[1]) => Promise<T>): Promise<T> {
+async function withRetry(shapeIds: string[], mutator: (root: StorageRoot) => void) {
   for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt += 1) {
     try {
-      shapeIds.forEach((id) => acquireLock(id, userId));
-      return await withUndo(shapeIds, userId, async () => {
-        const client = assertLiveblocks();
-        return client.updateRoomStorage(ROOM_ID, async (ctx) => {
-          const undoManager = ctx.getUndoManager?.();
-          undoManager?.batchStart();
-          try {
-            const result = await fn(ctx);
-            undoManager?.batchEnd();
-            return result;
-          } catch (error) {
-            undoManager?.batchEnd();
-            throw error;
-          }
-        });
-      });
+      shapeIds.forEach(acquireLock);
+      await mutateStorage(mutator);
+      return;
     } catch (error) {
       const isLockError = error instanceof Error && error.message.includes("locked");
       if (!isLockError || attempt === MAX_RETRY_ATTEMPTS - 1) {
         throw error;
       }
-      const delay = BASE_RETRY_DELAY_MS * 2 ** attempt;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, BASE_RETRY_DELAY_MS * 2 ** attempt));
     } finally {
-      shapeIds.forEach((id) => releaseLock(id));
+      shapeIds.forEach(releaseLock);
     }
   }
   throw new Error("Exceeded retry attempts for AI mutation.");
+}
+
+interface StorageRoot {
+  shapes?: Record<string, ShapeMetadata>;
+}
+
+function getShapes(root: StorageRoot) {
+  if (!root.shapes) {
+    root.shapes = {};
+  }
+  return root.shapes;
 }
 
 export async function createShape(params: AiToolParams["createShape"], userId: string) {
@@ -140,7 +112,15 @@ export async function createShape(params: AiToolParams["createShape"], userId: s
     },
   } as JsonShape;
 
-  await setShape(baseShape, userId, commandId, now);
+  await mutateStorage((root) => {
+    const shapes = getShapes(root);
+    const metadata: ShapeMetadata = {
+      shape: withAiMetadata(baseShape, userId, commandId, now),
+      updatedAt: now,
+      updatedBy: userId,
+    };
+    shapes[baseShape.id] = metadata;
+  });
   return { id: baseShape.id, commandId };
 }
 
@@ -269,15 +249,15 @@ export async function createCompositeLoginForm(userId: string, origin: { x: numb
     },
   ] as JsonShape[];
 
-  const client = assertLiveblocks();
-  await client.updateRoomStorage(ROOM_ID, ({ set }) => {
+  await mutateStorage((root) => {
+    const shapesMap = getShapes(root);
     shapes.forEach((shape, index) => {
       const metadata: ShapeMetadata = {
         shape: withAiMetadata({ ...shape, index: `a${index}` }, userId, commandId, now),
         updatedAt: now,
         updatedBy: userId,
       };
-      set(["shapes", shape.id], metadata);
+      shapesMap[shape.id] = metadata;
     });
   });
 
@@ -285,8 +265,9 @@ export async function createCompositeLoginForm(userId: string, origin: { x: numb
 }
 
 export async function moveShape(params: AiToolParams["moveShape"], userId: string) {
-  return withRetryAndUndo([params.shapeId], userId, async ({ get, set }) => {
-    const record = get(["shapes", params.shapeId]) as ShapeMetadata | undefined;
+  return withRetry([params.shapeId], (root) => {
+    const shapes = getShapes(root);
+    const record = shapes[params.shapeId];
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -309,13 +290,14 @@ export async function moveShape(params: AiToolParams["moveShape"], userId: strin
       updatedAt: now,
       updatedBy: userId,
     };
-    set(["shapes", params.shapeId], updated);
+    shapes[params.shapeId] = updated;
   });
 }
 
 export async function resizeShape(params: AiToolParams["resizeShape"], userId: string) {
-  return withRetryAndUndo([params.shapeId], userId, async ({ get, set }) => {
-    const record = get(["shapes", params.shapeId]) as ShapeMetadata | undefined;
+  return withRetry([params.shapeId], (root) => {
+    const shapes = getShapes(root);
+    const record = shapes[params.shapeId];
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -341,13 +323,14 @@ export async function resizeShape(params: AiToolParams["resizeShape"], userId: s
       updatedAt: now,
       updatedBy: userId,
     };
-    set(["shapes", params.shapeId], updated);
+    shapes[params.shapeId] = updated;
   });
 }
 
 export async function rotateShape(params: AiToolParams["rotateShape"], userId: string) {
-  return withRetryAndUndo([params.shapeId], userId, async ({ get, set }) => {
-    const record = get(["shapes", params.shapeId]) as ShapeMetadata | undefined;
+  return withRetry([params.shapeId], (root) => {
+    const shapes = getShapes(root);
+    const record = shapes[params.shapeId];
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -369,15 +352,16 @@ export async function rotateShape(params: AiToolParams["rotateShape"], userId: s
       updatedAt: now,
       updatedBy: userId,
     };
-    set(["shapes", params.shapeId], updated);
+    shapes[params.shapeId] = updated;
   });
 }
 
 export async function arrangeLayout(params: AiToolParams["arrangeLayout"], userId: string) {
-  return withRetryAndUndo(params.shapeIds, userId, async ({ get, set }) => {
+  return withRetry(params.shapeIds, (root) => {
+    const shapes = getShapes(root);
     const now = Date.now();
-    params.shapeIds.forEach((id, index) => {
-      const record = get(["shapes", id]) as ShapeMetadata | undefined;
+    params.shapeIds.forEach((id) => {
+      const record = shapes[id];
       if (!record) {
         throw new Error(`Shape ${id} not found.`);
       }
@@ -397,7 +381,7 @@ export async function arrangeLayout(params: AiToolParams["arrangeLayout"], userI
         updatedAt: now,
         updatedBy: userId,
       };
-      set(["shapes", id], updated);
+      shapes[id] = updated;
     });
   });
 }

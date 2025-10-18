@@ -29,6 +29,7 @@ import throttle from "lodash/throttle";
 import { colorFromUserId, getContrastColor } from "@/lib/colors";
 import type { JsonShape, ShapeMetadata } from "@/lib/schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useSnapshotIdleEffect } from "@/hooks/useSnapshotIdleEffect";
 
 const STORAGE_MAP_KEY = "shapes";
 const BROADCAST_THROTTLE_MS = 80;
@@ -132,6 +133,8 @@ export function Canvas() {
   const queueRef = useRef<Map<string, PendingDelta>>(new Map());
   const pendingLocalRef = useRef<Set<string>>(new Set());
   const shadowRef = useRef<Map<string, number>>(new Map());
+  const latestRemoteUpdateRef = useRef<number>(0);
+  const latestAiUpdateRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
   const others = useOthers();
@@ -147,6 +150,8 @@ export function Canvas() {
     }
     return Array.from(map.entries()) as ImmutableShapeEntry[];
   });
+
+  useSnapshotIdleEffect(latestAiUpdateRef.current);
 
   useEffect(() => {
     if (!storageRoot) {
@@ -200,6 +205,10 @@ export function Canvas() {
 
         pendingLocalRef.current.delete(id);
         shadowRef.current.set(id, delta.updatedAt);
+        latestRemoteUpdateRef.current = Math.max(latestRemoteUpdateRef.current, delta.updatedAt);
+        if (record.updatedBy) {
+          latestAiUpdateRef.current = delta.updatedAt;
+        }
       });
 
       pending.clear();
@@ -345,6 +354,10 @@ export function Canvas() {
       });
 
       shadowRef.current.set(id, updatedAt);
+      latestRemoteUpdateRef.current = Math.max(latestRemoteUpdateRef.current, updatedAt);
+      if (record.updatedBy) {
+        latestAiUpdateRef.current = updatedAt;
+      }
     });
 
     const currentIds = editor.getCurrentPageShapeIds();
