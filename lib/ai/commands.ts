@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Liveblocks } from "@liveblocks/node";
+import { LiveMap, Liveblocks } from "@liveblocks/node";
 import { nanoid } from "nanoid";
 
 import type { AiToolParams } from "@/lib/ai/types";
@@ -81,12 +81,12 @@ async function withRetry(shapeIds: string[], mutator: (root: StorageRoot) => voi
 }
 
 interface StorageRoot {
-  shapes?: Record<string, ShapeMetadata>;
+  shapes?: LiveMap<string, ShapeMetadata>;
 }
 
 function getShapes(root: StorageRoot) {
   if (!root.shapes) {
-    root.shapes = {};
+    root.shapes = new LiveMap<string, ShapeMetadata>();
   }
   return root.shapes;
 }
@@ -119,7 +119,7 @@ export async function createShape(params: AiToolParams["createShape"], userId: s
       updatedAt: now,
       updatedBy: userId,
     };
-    shapes[baseShape.id] = metadata;
+    shapes.set(baseShape.id, metadata);
   });
   return { id: baseShape.id, commandId };
 }
@@ -257,7 +257,7 @@ export async function createCompositeLoginForm(userId: string, origin: { x: numb
         updatedAt: now,
         updatedBy: userId,
       };
-      shapesMap[shape.id] = metadata;
+      shapesMap.set(shape.id, metadata);
     });
   });
 
@@ -267,7 +267,7 @@ export async function createCompositeLoginForm(userId: string, origin: { x: numb
 export async function moveShape(params: AiToolParams["moveShape"], userId: string) {
   return withRetry([params.shapeId], (root) => {
     const shapes = getShapes(root);
-    const record = shapes[params.shapeId];
+    const record = shapes.get(params.shapeId) as ShapeMetadata | undefined;
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -290,14 +290,14 @@ export async function moveShape(params: AiToolParams["moveShape"], userId: strin
       updatedAt: now,
       updatedBy: userId,
     };
-    shapes[params.shapeId] = updated;
+    shapes.set(params.shapeId, updated);
   });
 }
 
 export async function resizeShape(params: AiToolParams["resizeShape"], userId: string) {
   return withRetry([params.shapeId], (root) => {
     const shapes = getShapes(root);
-    const record = shapes[params.shapeId];
+    const record = shapes.get(params.shapeId) as ShapeMetadata | undefined;
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -323,14 +323,14 @@ export async function resizeShape(params: AiToolParams["resizeShape"], userId: s
       updatedAt: now,
       updatedBy: userId,
     };
-    shapes[params.shapeId] = updated;
+    shapes.set(params.shapeId, updated);
   });
 }
 
 export async function rotateShape(params: AiToolParams["rotateShape"], userId: string) {
   return withRetry([params.shapeId], (root) => {
     const shapes = getShapes(root);
-    const record = shapes[params.shapeId];
+    const record = shapes.get(params.shapeId) as ShapeMetadata | undefined;
     if (!record) {
       throw new Error(`Shape ${params.shapeId} not found.`);
     }
@@ -352,7 +352,7 @@ export async function rotateShape(params: AiToolParams["rotateShape"], userId: s
       updatedAt: now,
       updatedBy: userId,
     };
-    shapes[params.shapeId] = updated;
+    shapes.set(params.shapeId, updated);
   });
 }
 
@@ -361,7 +361,7 @@ export async function arrangeLayout(params: AiToolParams["arrangeLayout"], userI
     const shapes = getShapes(root);
     const now = Date.now();
     params.shapeIds.forEach((id) => {
-      const record = shapes[id];
+      const record = shapes.get(id) as ShapeMetadata | undefined;
       if (!record) {
         throw new Error(`Shape ${id} not found.`);
       }
@@ -381,7 +381,7 @@ export async function arrangeLayout(params: AiToolParams["arrangeLayout"], userI
         updatedAt: now,
         updatedBy: userId,
       };
-      shapes[id] = updated;
+      shapes.set(id, updated);
     });
   });
 }
