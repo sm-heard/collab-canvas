@@ -13,8 +13,6 @@ import {
 } from "@liveblocks/react";
 import {
   getIndexAbove,
-  TLGeoShape,
-  TLGeoShapeProps,
   TLParentId,
   TLRecord,
   TLShape,
@@ -29,7 +27,7 @@ import {
 import type { RecordsDiff } from "@tldraw/store";
 import throttle from "lodash/throttle";
 import { colorFromUserId, getContrastColor } from "@/lib/colors";
-import type { JsonRectangle, ShapeMetadata } from "@/lib/schema";
+import type { JsonShape, ShapeMetadata } from "@/lib/schema";
 import { useAuth } from "@/hooks/useAuth";
 
 const STORAGE_MAP_KEY = "shapes";
@@ -39,7 +37,7 @@ type CursorPoint = { x: number; y: number };
 
 type ShapeUpsert = {
   id: TLShapeId;
-  shape: JsonRectangle;
+  shape: JsonShape;
   updatedAt: number;
   updatedBy: string | null;
   action: "upsert";
@@ -65,70 +63,67 @@ function isCursorPoint(value: unknown): value is CursorPoint {
   );
 }
 
-function isRectangle(shape: TLUnknownShape | TLShape): shape is TLGeoShape {
-  if (shape.type !== "geo") {
-    return false;
+function cloneValue<T>(value: T): T {
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
   }
 
-  const props = shape.props as Partial<TLGeoShapeProps> | undefined;
-  return props?.geo === "rectangle";
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function shapeToJson(shape: TLGeoShape): JsonRectangle {
+function sanitizeProps(json: JsonShape): Record<string, unknown> {
+  const props = { ...(json.props ?? {}) } as Record<string, unknown>;
+
+  if (json.type === "geo") {
+    const stroke = props.stroke;
+    if (typeof stroke === "string" && props.color === undefined) {
+      props.color = stroke;
+    }
+    delete props.stroke;
+  }
+
+  return props;
+}
+
+function shapeToJson(shape: TLShape): JsonShape {
   const parentId = (shape.parentId ?? "page:page") as TLParentId;
   const indexValue = shape.index ?? getIndexAbove();
-  const indexString = typeof indexValue === "string" ? indexValue : String(indexValue);
+  const index = typeof indexValue === "string" ? indexValue : String(indexValue);
+
+  const { id, typeName, type } = shape;
 
   return {
-    id: shape.id,
-    type: "geo",
-    typeName: "shape",
+    id,
+    typeName,
+    type,
     parentId,
-    index: indexString,
+    index,
     x: shape.x,
     y: shape.y,
     rotation: shape.rotation ?? 0,
-    props: {
-      w: shape.props.w,
-      h: shape.props.h,
-      fill: shape.props.fill ?? undefined,
-      stroke: shape.props.color ?? undefined,
-    },
-  } satisfies JsonRectangle;
+    props: cloneValue(shape.props ?? {}),
+    meta: cloneValue(shape.meta ?? {}),
+  } satisfies JsonShape;
 }
 
-function jsonToPartial(json: JsonRectangle): TLShapePartial<TLGeoShape> {
+function jsonToPartial(json: JsonShape): TLShapePartial<TLUnknownShape> {
   const parentId = (json.parentId ?? "page:page") as TLParentId;
-  const indexValue = (json.index as TLShapePartial<TLGeoShape>["index"]) ?? getIndexAbove();
-  const fill = (json.props.fill ?? "solid") as TLGeoShapeProps["fill"];
-  const color = (json.props.stroke ?? "black") as TLGeoShapeProps["color"];
+  const indexValue = (json.index as TLShapePartial<TLShape>["index"]) ?? getIndexAbove();
+  const props = sanitizeProps(json) as TLShapePartial<TLUnknownShape>["props"];
+  const meta = cloneValue(json.meta ?? {}) as TLShapePartial<TLUnknownShape>["meta"];
 
   return {
     id: json.id as TLShapeId,
-    type: "geo",
+    type: json.type,
+    typeName: json.typeName,
     parentId,
     index: indexValue,
     x: json.x,
     y: json.y,
     rotation: json.rotation ?? 0,
-    props: {
-      geo: "rectangle",
-      w: json.props.w,
-      h: json.props.h,
-      fill,
-      color,
-      dash: "draw",
-      size: "m",
-      font: "draw",
-      align: "middle",
-      verticalAlign: "middle",
-      labelColor: "black",
-      growY: 0,
-      scale: 1,
-      url: "",
-      richText: { type: "doc", content: [] },
-    } satisfies TLGeoShapeProps,
-  } satisfies TLShapePartial<TLGeoShape>;
+    props,
+    meta,
+  } satisfies TLShapePartial<TLUnknownShape>;
 }
 
 export function Canvas() {
@@ -198,7 +193,7 @@ export function Canvas() {
             pendingLocalRef.current.delete(id);
             return;
           }
-          existing.set("shape", record.shape as JsonRectangle);
+          existing.set("shape", record.shape as JsonShape);
           existing.set("updatedAt", record.updatedAt);
           existing.set("updatedBy", record.updatedBy);
         }
@@ -274,9 +269,6 @@ export function Canvas() {
             return;
           }
           const shape = record as TLShape;
-          if (!isRectangle(shape)) {
-            return;
-          }
           queueDelta({
             id: shape.id,
             shape: shapeToJson(shape),
@@ -292,9 +284,6 @@ export function Canvas() {
             return;
           }
           const shape = next as TLShape;
-          if (!isRectangle(shape)) {
-            return;
-          }
           queueDelta({
             id: shape.id,
             shape: shapeToJson(shape),
@@ -310,9 +299,6 @@ export function Canvas() {
             return;
           }
           const shape = record as TLShape;
-          if (!isRectangle(shape)) {
-            return;
-          }
           queueDelta({
             id: shape.id,
             updatedAt: now,
@@ -372,7 +358,7 @@ export function Canvas() {
       }
 
       const shape = editor.getShape(shapeId);
-      if (!shape || !isRectangle(shape)) {
+      if (!shape) {
         return;
       }
 

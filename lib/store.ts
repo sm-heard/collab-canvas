@@ -1,12 +1,12 @@
 import { create } from "zustand";
-import type { JsonRectangle } from "@/lib/schema";
+import type { JsonShape } from "@/lib/schema";
 
-type ShapeId = JsonRectangle["id"];
+type ShapeId = JsonShape["id"];
 
 type ShapeDelta = {
   action: "upsert" | "delete";
   shapeId: ShapeId;
-  shape?: JsonRectangle;
+  shape?: JsonShape;
   updatedAt: number;
   updatedBy: string | null;
 };

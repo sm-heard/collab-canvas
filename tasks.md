@@ -1,287 +1,232 @@
-# Pulseboard — MVP Task & PR Plan (v1)
+# CollabCanvas — AI Canvas Agent Task & PR Plan (v1)
 
-**Owner:** Sami
-**Date:** Oct 14, 2025
-**Status:** Draft for review
-**Repo:** `collab-canvas` (Next.js App Router, Bun)
+**Owner:** Mixas  
+**Date:** Oct 17, 2025  
+**Status:** Draft for review  
+**Repo:** `collab-canvas`
 
-> Branching: `main` is protected. Use short‑lived feature branches per PR (e.g., `pr-001-auth`).
-> Quality: focus on end-to-end verification via manual QA walkthroughs per milestone.
-
----
-
-## High‑Level Milestones
-
-* **M0**: Repo scaffold & tooling
-* **M1**: Auth (Google) + route guard
-* **M2**: Liveblocks (token API, client) + presence
-* **M3**: Canvas (tldraw) + rectangle tool + transforms
-* **M4**: Realtime sync + throttled deltas
-* **M5**: Durable snapshots to Firestore (hard 10‑s idle)
-* **M6**: Perf checks + deploy to Vercel
+> Branching: keep `main` protected; use short-lived feature branches per PR (e.g., `pr-100-ai-orchestrator`).  
+> Quality: prioritize end-to-end manual QA walkthroughs aligned with PRD success metrics (latency, accuracy, reliability).
 
 ---
 
-## File Structure (target after M6)
+## Phase Milestones (AI Canvas Agent)
 
-```
-app/
-  layout.tsx
-  page.tsx                      // Canvas route
-  api/
-    liveblocks-auth/route.ts    // Token endpoint
-    snapshot/route.ts           // optional; see PR‑006
-components/
-  Canvas.tsx                    // tldraw wrapper/editor
-  Toolbar.tsx
-  PresenceAvatars.tsx
-  ConnectionIndicator.tsx
-lib/
-  liveblocks.ts                 // client bindings + hooks
-  firebase.ts                   // Firebase init (Auth)
-  colors.ts                     // uid→color hashing
-  schema.ts                     // zod schemas for Shape, Snapshot
-  store.ts                      // zustand local store + adapters
-styles/
-  globals.css
-public/
-  favicon.ico
-firebase.rules.firestore
-.env.example
-```
+| Date | Milestone | Key Deliverables |
+| --- | --- | --- |
+| Oct 18 | Architecture freeze | Finalized function schemas, security approach, PR sequencing. |
+| Oct 20 | Prototype (closed beta) | Prompt UI stub + Vercel AI SDK route returning mock tool calls. |
+| Oct 22 | Internal beta | Real canvas mutations for six command categories; undo integration. |
+| Oct 24 | Public beta | Conflict handling, shared awareness UI, QA checklist complete. |
+| Oct 25 | Final submission | Demo assets, AI development log, docs updates, deployment validation. |
 
 ---
 
-## PR‑000 — Repo Scaffold & Tooling
+## Shared Prerequisites
 
-**Goal:** Create Next.js app, add Tailwind + shadcn/ui, lint/format.
+- Confirm existing multiplayer canvas (Liveblocks + `@tldraw`) is stable on latest `main`.
+- Gather Vercel AI SDK credentials and model choice (`AI_MODEL`, `AI_API_KEY`).
+- Align team on command catalog (create, manipulate, layout, complex UI patterns).
+- Baseline manual latency measurements for current canvas operations to compare post-integration.
+
+---
+
+## PR-100 — AI Architecture Preparation & Dependencies
+
+**Goal:** Lay the groundwork for AI integration, ensuring environment, packages, and documentation are ready.
 
 **Subtasks**
-
-* Initialize Next.js (App Router, TS). Configure Bun scripts.
-* Tailwind setup; import base styles; add `globals.css`.
-* Install shadcn/ui and generate minimal Button.
-* ESLint + Prettier; strict TS.
-* Add `.env.example` and README setup steps.
-
-**Files (create/update)**
-
-* `package.json` (Bun scripts): `dev`, `build`, `start`, `lint`
-* `app/layout.tsx`, `app/page.tsx`
-* `styles/globals.css`
-* `components/Toolbar.tsx` (placeholder)
-* `.eslintrc.cjs`, `.prettierrc`
-* `.env.example`, `README.md`
+- Install Vercel AI SDK (`ai` package) and verify compatibility with Next.js App Router.
+- Add `.env.example` entries: `AI_MODEL`, `AI_API_KEY`, `AI_RESPONSE_TIMEOUT_MS`.
+- Draft `src/lib/ai/types.ts` with shared TypeScript interfaces for prompts, tool calls, and responses.
+- Update `architecture.md` diagram to include AI modules (Prompt UI, API route, command adapter).
+- Document local setup steps for Vercel AI SDK in `README.md`.
 
 **Acceptance**
-
-* `bun dev` runs locally; lint passes.
+- `bun lint` and `bun build` succeed after dependency changes.
+- Updated documentation reviewed and linked from the PR summary.
 
 ---
 
-## PR‑001 — Firebase Auth (Google) & Route Guard
+## PR-101 — Prompt UI & Command Tray
 
-**Goal:** Gate canvas behind Google sign‑in; expose user profile to UI.
+**Goal:** Provide users with a discoverable entry point to interact with the AI agent from the canvas.
 
 **Subtasks**
-
-* Add Firebase SDK init (client‑only) and Google provider.
-* Sign in/out button in the toolbar; show avatar/name when signed in.
-* Simple guard in `app/page.tsx`: redirect to sign‑in pane if unauthenticated.
-
-**Files**
-
-* `lib/firebase.ts` (new)
-* `components/Toolbar.tsx` (update: auth buttons, avatar)
-* `app/page.tsx` (update: guard)
+- Create `components/AiCommandTray.tsx` with prompt input, history list, and streaming feedback area.
+- Add keyboard shortcut `/` to focus the prompt; ensure Escape blurs.
+- Display command status badges (`thinking`, `running`, `error`, `done`).
+- Persist command history per session using Zustand or existing UI store.
+- Update toolbar to include “Ask AI” button that toggles the tray.
 
 **Acceptance**
-
-* Visiting `/` prompts Google sign‑in when logged out; after sign‑in, canvas shell is visible.
-* Manual QA checklist (see README) executed for both login and logout flows.
+- Manual test: submit dummy prompt, see streaming placeholder text, history entry recorded.
+- Accessibility pass: prompt supports screen readers (aria labels, status updates).
 
 ---
 
-## PR‑002 — Liveblocks Token API & Client Bindings
+## PR-102 — AI Command API Route (Stubbed)
 
-**Goal:** Secure Liveblocks with server‑side token issuance; wire client provider and room join (`rooms/default`).
+**Goal:** Implement the Next.js route handler that orchestrates AI responses using Vercel AI SDK, initially returning mock tool calls.
 
 **Subtasks**
-
-* Add `LIVEBLOCKS_SECRET` to env.
-* Implement `app/api/liveblocks-auth/route.ts` to mint room‑scoped tokens.
-* Create `lib/liveblocks.ts` for provider & hooks setup.
-
-**Files**
-
-* `app/api/liveblocks-auth/route.ts` (new)
-* `lib/liveblocks.ts` (new)
-* `app/page.tsx` (update: wrap editor with Liveblocks provider)
+- Add `app/api/ai/command/route.ts` using Edge runtime.
+- Validate Firebase ID token server-side; reject unauthenticated requests.
+- Initialize Vercel AI SDK client with model + timeout configuration.
+- Define tool/function schema matching PRD (`getCanvasState`, `createShape`, etc.).
+- Return mocked streaming events (`progress`, `success`) without mutating the canvas yet.
 
 **Acceptance**
-
-* Network call to `/api/liveblocks-auth` succeeds when signed in; client joins room without errors.
-* Manual checklist complete: Liveblocks env vars set, token endpoint returns 200 with Firebase ID token, unauthorized request yields 401.
-* Room-aware components (presence summary & shared counter) render only when authenticated and reflect cross-client updates.
+- `bun lint` and route unit tests (if any) pass.
+- Manual `curl` or Playwright script receives streamed mock response.
 
 ---
 
-## PR‑003 — Canvas Integration (tldraw) & Large Finite Bounds
+## PR-103 — Canvas Command Adapter & Liveblocks Bridge
 
-**Goal:** Embed tldraw editor with pan/zoom/select; disable undo/redo; set large finite bounds.
+**Goal:** Execute AI tool calls against the real canvas state through a server-driven adapter.
 
 **Subtasks**
-
-* Add `@tldraw/tldraw`, render editor in `Canvas.tsx`.
-* Configure pan/zoom, selection handles (defaults okay) and keyboard hints (R/V/Space).
-* Disable undo/redo for MVP.
-* Configure large finite canvas (e.g., 100k × 100k px) and default viewport.
-* Add `ConnectionIndicator` skeleton.
-
-**Files**
-
-* `components/Canvas.tsx` (new)
-* `components/ConnectionIndicator.tsx` (new)
-* `app/page.tsx` (update: mount Canvas)
-* `styles/globals.css` (update: editor sizing)
+- Create `src/lib/ai/commands.ts` encapsulating functions: `getCanvasState`, `createShape`, etc.
+- Implement Liveblocks server mutations (or proxy to existing mutation helpers) with deterministic ordering.
+- Ensure mutations tag `source: "ai"` and include `aiCommandId` metadata when applicable.
+- Round-trip test: issue `createShape` call from the stub route to confirm shapes appear for all clients.
 
 **Acceptance**
-
-* User can pan/zoom/select at ≥55 FPS with empty doc.
-* tldraw surface renders inside authenticated view with placeholder hint overlay.
+- Two-browser manual test shows AI-created shape syncing within latency targets.
+- Shape metadata (`source`, `aiCommandId`) visible in storage inspector or logs.
 
 ---
 
-## PR‑004 — Presence & Multiplayer Cursors with Labels
+## PR-104 — Creation & Text Commands
 
-**Goal:** Show other users’ cursors with name + deterministic color; presence list.
+**Goal:** Enable AI-driven creation of basic shapes and grouped UI components.
 
 **Subtasks**
-
-* Presence: `updateMyPresence({ cursor })` throttled; `useOthers()` to render peers.
-* Deterministic color from `uid` hash; label from Firebase displayName.
-* Presence avatars component and canvas overlay.
-
-**Files**
-
-* `lib/colors.ts` (new)
-* `components/PresenceAvatars.tsx` (new)
-* `components/Canvas.tsx` (update: cursor overlay render)
+- Map prompts to tool calls for rectangles, circles, and text layers with configurable attributes.
+- Implement helpers to center shapes, apply requested colors, and default dimensions when unspecified.
+- Build composite routines (e.g., login form, nav bar, card layout) that schedule multiple tool calls sequentially.
+- Stream progress updates per step (e.g., “Creating username input”, “Positioning button”).
+- Add command result summary to the prompt history.
 
 **Acceptance**
-
-* Opening two windows shows presence avatars and live cursors with labels within ~100–150 ms.
+- QA script: prompts for each creation command succeed without manual intervention.
+- Manual test verifies complex layout (login form) includes expected elements and spacing.
 
 ---
 
-## PR‑005 — Rectangle Tool: Create/Move/Resize + Deltas
+## PR-105 — Manipulation Commands (Move, Resize, Rotate)
 
-**Goal:** One shape type (rect). Broadcast minimal deltas during transform; LWW per prop.
+**Goal:** Allow the AI to modify existing shapes referenced by color, name, or selection context.
 
 **Subtasks**
-
-* Shape schema (Zod) & types; zustand store for local ephemeral edits.
-* Bind tldraw shape hooks to Liveblocks Storage map `shapes`.
-* During drag: optimistic local update + throttled broadcast (60–90 ms). On mouseup: final commit.
-* LWW merge per property (simple): accept incoming if `updatedAt` is newer.
-
-**Files**
-
-* `lib/schema.ts` (new; Shape zod + types)
-* `lib/store.ts` (new; reducers + adapters)
-* `components/Canvas.tsx` (update: rectangle tool wiring)
+- Implement shape lookup resolver handling references like “blue rectangle” or “selected shapes”.
+- Add `moveShape`, `resizeShape`, `rotateShape` tool execution with optimistic client updates.
+- Manage bounding box adjustments to avoid overlapping shapes when resizing.
+- Report partial failures (e.g., shape not found) back to the client with actionable guidance.
 
 **Acceptance**
-
-* User can draw/move/resize a rectangle; peers see updates within ~200 ms P95.
+- Manual test: AI moves, resizes, and rotates shapes across two clients without desync.
+- Error messaging verified by issuing prompts referencing non-existent shapes.
 
 ---
 
-## PR‑006 — Firestore Durable Snapshots (10‑s Idle)
+## PR-106 — Layout & Distribution Commands
 
-**Goal:** Persist shape set to Firestore after 10‑s idle (hard); batch writes.
+**Goal:** Implement higher-order layout operations such as grids, rows, columns, and even spacing.
 
 **Subtasks**
-
-* Add Firestore client; write snapshot routine that posts a single compressed blob to `/api/snapshot`.
-* Snapshot trigger: debounce trailing edge 10 s from last mutation; include `version` and timestamp.
-* Security rules: authenticated read; `/api/snapshot` writes validated server-side.
-* `/api/snapshot` route: accept compressed payload, store in Firestore doc `rooms/default/snapshots/latest` (or similar).
-* Add simple **Export JSON** button.
-
-**Files**
-
-* `lib/firebase.ts` (update: add Firestore)
-* `app/api/snapshot/route.ts` (new, optional)
-* `firebase.rules.firestore` (new)
-* `components/Toolbar.tsx` (update: Export JSON)
+- Add `arrangeLayout` tool logic for `grid`, `row`, `column`, and `distribute` options.
+- Support parameters for rows, columns, spacing, and alignment anchors.
+- Ensure layout commands work on multi-selection contexts and maintain relative layering.
+- Provide undo grouping so the entire layout change reverts in one step.
 
 **Acceptance**
-
-* Refresh after edits restores last snapshot within ~2 s after auth.
+- Manual tests: 3×3 grid creation, horizontal distribution, and column stacking behave as expected.
+- Undo restores original positions in a single action.
 
 ---
 
-## PR‑007 — Perf & UX Polish
+## PR-107 — Shared Awareness & Conflict Handling
 
-**Goal:** Keep FPS high; clear status; empty state hints.
+**Goal:** Improve collaboration UX by surfacing AI activity and managing edit conflicts.
 
 **Subtasks**
-
-* Throttle cursor & transform broadcasts (verify cadence).
-* Connection indicator for connected/reconnecting; presence count.
-* Empty state hint: “Press R to draw a rectangle. Scroll to zoom.”
-* Basic telemetry (optional): Vercel Analytics; Sentry for errors.
-
-**Files**
-
-* `components/ConnectionIndicator.tsx` (update)
-* `app/layout.tsx` (update: analytics)
+- Display “AI editing…” banner to other users with initiator name and prompt text.
+- Implement lightweight locking (5 s TTL) when AI manipulates a shape; release on completion or timeout.
+- Detect Liveblocks storage conflicts (deleted/locked shapes) and emit structured `conflict` responses.
+- Provide retry/backoff strategy (e.g., two attempts before aborting with message).
 
 **Acceptance**
-
-* Subjective smoothness maintained; no console errors.
+- Manual test: concurrent user editing triggers conflict message without corrupting state.
+- Observed banner disappears promptly after command completion or failure.
 
 ---
 
-## PR‑009 — Deployment (Vercel) & Docs
+## PR-108 — Undo Integration & Snapshot Alignment
 
-**Goal:** Public URL, env wiring, runbook.
+**Goal:** Ensure AI operations participate in existing undo/redo flows and durable snapshots.
 
 **Subtasks**
-
-* Add Vercel project; set env vars: `LIVEBLOCKS_SECRET`, Firebase keys.
-* Protect `main`; require PR checks; preview deployments enabled.
-* Update README with setup, env, and dev runbook.
-
-**Files**
-
-* `README.md` (update: deploy steps)
-* Vercel project settings (external)
-
-**Verification**
-
-* Manual QA against the preview URL following the checklist.
+- Batch AI mutations into atomic history entries compatible with `@tldraw` undo stack.
+- Verify idle snapshot timer persists AI-created shapes to Firestore (no additional work unless bugs found).
+- Add optional `Revert last AI action` shortcut in the command history UI.
+- Document any known limitations (e.g., complex multi-step undo edge cases).
 
 **Acceptance**
-
-* Public URL live; first‑time user can sign in with Google and draw within 10 s.
+- Manual test: trigger AI command, undo once to revert all related changes, redo to reapply.
+- Refresh after idle period retains AI-generated content.
 
 ---
 
-## Environment Variables
+## PR-109 — QA Automation & Load Validation
 
-* `LIVEBLOCKS_SECRET`
-* `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_APP_ID`, `FIREBASE_MESSAGING_SENDER_ID`
-* (optional) `NEXT_PUBLIC_*` Firebase keys for client init
+**Goal:** Validate reliability and performance targets outlined in the PRD.
+
+**Subtasks**
+- Extend Playwright or integration tests to issue representative prompts and assert canvas state.
+- Script latency measurements (command start-to-first mutation) and log results for internal tracking.
+- Run 5-user load simulation (multiple browsers or puppeteer) for 10 minutes monitoring desync.
+- Compile QA checklist covering all command categories and error flows.
+
+**Acceptance**
+- QA report uploaded/linked in PR with latency figures and notable findings.
+- No critical issues discovered during load test; regression issues filed if found.
+
+---
+
+## PR-110 — Documentation, Demo, & Launch Readiness
+
+**Goal:** Finalize artifacts required for submission and public beta launch.
+
+**Subtasks**
+- Update `README.md` with AI setup instructions, supported commands, and troubleshooting tips.
+- Complete AI Development Log (tools, prompts, code attribution, lessons learned).
+- Record or script demo video showcasing real-time AI collaboration scenario.
+- Ensure deployment environment has required AI env vars and feature flag enabled.
+- Perform end-to-end smoke test on production URL with two users.
+
+**Acceptance**
+- Launch checklist complete; stakeholders sign off on documentation and demo assets.
+- Final smoke test passes without blocking issues.
+
+---
+
+## Environment Variables (AI Feature)
+
+- `AI_MODEL`
+- `AI_API_KEY`
+- `AI_RESPONSE_TIMEOUT_MS` (optional; sets request timeout)
+- Existing Liveblocks and Firebase env vars remain unchanged.
 
 ---
 
 ## Package Commands (Bun)
 
-* `bun dev` — Next dev
-* `bun build` — Next build
-* `bun start` — Next start
-* `bun lint` — ESLint
+- `bun dev` — Next dev
+- `bun build` — Next build
+- `bun start` — Next start
+- `bun lint` — ESLint
+- `bun test` — Playwright/Jest (if configured)
 
 ---
