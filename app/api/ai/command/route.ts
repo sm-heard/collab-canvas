@@ -3,7 +3,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 
-import { adminAuth } from "@/lib/firebase-admin";
+import { adminAuth } from "../../../../lib/firebase-admin";
 import {
   arrangeLayout,
   createCompositeLoginForm,
@@ -11,8 +11,8 @@ import {
   moveShape,
   resizeShape,
   rotateShape,
-} from "@/lib/ai/commands";
-import type { AiToolName, AiToolParams } from "@/lib/ai/types";
+} from "../../../../lib/ai/commands";
+import type { AiToolName, AiToolParams } from "../../../../lib/ai/types";
 
 function describeCommand(name: AiToolName) {
   switch (name) {
