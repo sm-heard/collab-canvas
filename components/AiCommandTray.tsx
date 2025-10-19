@@ -183,8 +183,10 @@ export function AiCommandTray() {
           }
 
           const chunk = decoder.decode(value, { stream: true });
+          console.debug("[AI SSE raw]", chunk);
           const parts = chunk.split("\n\n").filter(Boolean);
           for (const part of parts) {
+            console.debug("[AI SSE]", part);
             const event = parseSseChunk(part);
             if (!event) continue;
 

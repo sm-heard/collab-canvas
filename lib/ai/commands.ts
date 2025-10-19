@@ -101,6 +101,8 @@ function normalizeShape(shape: JsonShape): JsonShape {
     const height = typeof props.height === "number" ? props.height : 100;
     const color = normalizeColor(props.color, "violet");
     const fill = typeof props.fill === "string" ? props.fill : "semi";
+    delete props.width;
+    delete props.height;
     return {
       ...shape,
       type: "geo",
@@ -117,6 +119,8 @@ function normalizeShape(shape: JsonShape): JsonShape {
         font: "draw",
         align: "middle-legacy",
         verticalAlign: "middle",
+        w: width,
+        h: height,
         richText: createRichText(typeof props.text === "string" ? props.text : ""),
       },
       meta: {
@@ -133,6 +137,8 @@ function normalizeShape(shape: JsonShape): JsonShape {
     const height = typeof props.height === "number" ? props.height : width;
     const color = normalizeColor(props.color, "violet");
     const fill = typeof props.fill === "string" ? props.fill : "semi";
+    delete props.width;
+    delete props.height;
     return {
       ...shape,
       type: "geo",
@@ -149,6 +155,8 @@ function normalizeShape(shape: JsonShape): JsonShape {
         font: "draw",
         align: "middle-legacy",
         verticalAlign: "middle",
+        w: width,
+        h: height,
         richText: createRichText(typeof props.text === "string" ? props.text : ""),
       },
       meta: {
@@ -685,7 +693,12 @@ export async function getCanvasState(params: AiToolParams["getCanvasState"], use
   });
 
   return {
-    shapes,
+    shapes: shapes.map((shape) => ({
+      ...shape,
+      size: shape.size
+        ? { width: shape.size.width, height: shape.size.height }
+        : undefined,
+    })),
     totalShapes: shapes.length,
     snapshotAt: now,
     requestedBy: userId,

@@ -2,7 +2,7 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
-import { streamText, tool } from "ai";
+import { stepCountIs, streamText, tool } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 
@@ -39,7 +39,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or expired Firebase token." }, { status: 401 });
   }
 
-  let payload: { prompt?: string } = {};
+  let payload: {
+    prompt?: string;
+    composite?: "loginForm" | "navBar";
+    origin?: { x: number; y: number };
+    width?: number;
+  } = {};
   try {
     payload = (await request.json()) as typeof payload;
   } catch {
@@ -52,6 +57,58 @@ export async function POST(request: Request) {
   }
 
   const streamId = nanoid();
+
+  const encoder = new TextEncoder();
+  const sendSse = (controller: ReadableStreamDefaultController<Uint8Array>, event: string, data?: Record<string, unknown>) => {
+    const payload = data === undefined ? "" : `data: ${JSON.stringify(data)}\n`;
+    controller.enqueue(encoder.encode(`event: ${event}\n${payload}\n`));
+  };
+
+  if (payload.composite === "loginForm" || payload.composite === "navBar") {
+    const origin = payload.origin ?? { x: 200, y: 200 };
+    const command = payload.composite === "loginForm"
+      ? async () => createCompositeLoginForm(decoded.uid, origin)
+      : async () => createCompositeNavBar(decoded.uid, origin, { width: payload.width });
+
+    return new Response(
+      new ReadableStream({
+        async start(controller) {
+          sendSse(controller, "init", { streamId, prompt });
+          sendSse(controller, "progress", {
+            streamId,
+            status: "running",
+            message: payload.composite === "loginForm" ? "Creating login form layout…" : "Creating navigation bar…",
+          });
+
+          try {
+            const result = await command();
+            sendSse(controller, "summary", {
+              streamId,
+              status: "success",
+              durationMs: 0,
+              result,
+            });
+          } catch (error) {
+            sendSse(controller, "error", {
+              streamId,
+              status: "error",
+              message: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            sendSse(controller, "close");
+            controller.close();
+          }
+        },
+      }),
+      {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
+        },
+      },
+    );
+  }
 
   const tools = {
     getCanvasState: tool({
@@ -120,28 +177,25 @@ export async function POST(request: Request) {
     }),
   } as const;
 
-  const encoder = new TextEncoder();
   const startedAt = Date.now();
 
   const body = new ReadableStream({
     async start(controller) {
-      const send = (event: string, data?: Record<string, unknown>) => {
-        const payload = data === undefined ? "" : `data: ${JSON.stringify(data)}\n`;
-        controller.enqueue(encoder.encode(`event: ${event}\n${payload}\n`));
-      };
+      const send = (event: string, data?: Record<string, unknown>) => sendSse(controller, event, data);
 
       send("init", { streamId, prompt });
 
       let summarySent = false;
 
       try {
-        await streamText({
+        const stream = await streamText({
           model: openai(process.env.AI_MODEL ?? "gpt-4.1-mini"),
+          toolChoice: "required",
+          stopWhen: [stepCountIs(2)],
           messages: [
             {
               role: "system",
-              content:
-                "You are the CollabCanvas AI assistant. Use the provided tools to inspect the canvas and create or modify shapes. Always finish after executing the necessary tools.",
+              content: `You are the CollabCanvas AI assistant running in a shared design canvas.\n\nRules:\n1. ALWAYS satisfy the user's request by issuing the necessary tool calls. Plain text responses are forbidden.\n2. Before acting on existing shapes, call "getCanvasState" so you can match IDs by color, label, position, or selection metadata.\n3. After inspecting the canvas, execute mutation tools only when they are required to fulfill the request. If the desired result has already been achieved (for example, the new shape was just created in the requested style), you may finish immediately without further mutations.\n4. Never loop: avoid calling the same mutation tool repeatedly when the canvas already matches the specification.\n5. Treat any numeric dimensions as pixels; convert units like “px” or “pt” to numbers. Provide absolute x/y coordinates in pixels relative to the canvas origin.\n6. Colors must come from: black, grey, light-violet, violet, blue, light-blue, yellow, orange, green, light-green, light-red, red, white.\n7. Layout commands should call arrangeLayout with appropriate spacing/rows/columns, using the current selection when relevant.\n8. Mutation tools require a shapeId that exists. If you cannot uniquely identify a shape, call getCanvasState again or raise a meaningful error via tool output.\n9. Once the change is applied (or you return an error), finish without emitting additional assistant text.\n\nAvailable tools: getCanvasState (inspect), createShape (create new tldraw shape), moveShape (move existing), resizeShape (resize existing), rotateShape (rotate existing), arrangeLayout (grid/row/column/distribute groups), createCompositeLoginForm, createCompositeNavBar.`,
             },
             { role: "user", content: prompt },
           ],
@@ -168,7 +222,20 @@ export async function POST(request: Request) {
                 });
                 break;
               }
-              case "tool-result":
+              case "tool-result": {
+                send("progress", {
+                  streamId,
+                  status: "running",
+                  message: `Finished ${chunk.toolName}`,
+                  tool: {
+                    id: chunk.toolCallId,
+                    name: chunk.toolName,
+                    output: "output" in chunk ? chunk.output : undefined,
+                    error: "error" in chunk ? chunk.error : undefined,
+                  },
+                });
+                break;
+              }
               case "source":
               case "tool-input-start":
               case "tool-input-delta":
@@ -197,13 +264,17 @@ export async function POST(request: Request) {
           },
         });
 
+        await stream.consumeStream();
+
         if (!summarySent) {
+          summarySent = true;
           send("summary", {
             streamId,
             status: "success",
             durationMs: Date.now() - startedAt,
           });
         }
+
       } catch (error) {
         const message = error instanceof Error ? error.message : "AI command failed";
         send("error", { streamId, status: "error", message });
