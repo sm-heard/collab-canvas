@@ -97,12 +97,11 @@ function normalizeShape(shape: JsonShape): JsonShape {
   const props = { ...(shape.props ?? {}) } as Record<string, unknown>;
 
   if (shape.type === "rect") {
-    const width = typeof props.width === "number" ? props.width : 200;
-    const height = typeof props.height === "number" ? props.height : 100;
-    const color = normalizeColor(props.color, "violet");
-    const fill = typeof props.fill === "string" ? props.fill : "semi";
-    delete props.width;
-    delete props.height;
+    const { width: rawWidth, height: rawHeight, ...rest } = props;
+    const width = typeof rawWidth === "number" ? rawWidth : 200;
+    const height = typeof rawHeight === "number" ? rawHeight : 100;
+    const color = normalizeColor(rest.color, "violet");
+    const fill = typeof rest.fill === "string" ? rest.fill : "semi";
     return {
       ...shape,
       type: "geo",
@@ -121,7 +120,7 @@ function normalizeShape(shape: JsonShape): JsonShape {
         verticalAlign: "middle",
         w: width,
         h: height,
-        richText: createRichText(typeof props.text === "string" ? props.text : ""),
+        richText: createRichText(typeof rest.text === "string" ? rest.text : ""),
       },
       meta: {
         ...(shape.meta ?? {}),
@@ -133,12 +132,11 @@ function normalizeShape(shape: JsonShape): JsonShape {
 
   if (shape.type === "circle") {
     const defaultSize = 140;
-    const width = typeof props.width === "number" ? props.width : defaultSize;
-    const height = typeof props.height === "number" ? props.height : width;
-    const color = normalizeColor(props.color, "violet");
-    const fill = typeof props.fill === "string" ? props.fill : "semi";
-    delete props.width;
-    delete props.height;
+    const { width: rawWidth, height: rawHeight, ...rest } = props;
+    const width = typeof rawWidth === "number" ? rawWidth : defaultSize;
+    const height = typeof rawHeight === "number" ? rawHeight : width;
+    const color = normalizeColor(rest.color, "violet");
+    const fill = typeof rest.fill === "string" ? rest.fill : "semi";
     return {
       ...shape,
       type: "geo",
@@ -157,7 +155,7 @@ function normalizeShape(shape: JsonShape): JsonShape {
         verticalAlign: "middle",
         w: width,
         h: height,
-        richText: createRichText(typeof props.text === "string" ? props.text : ""),
+        richText: createRichText(typeof rest.text === "string" ? rest.text : ""),
       },
       meta: {
         ...(shape.meta ?? {}),
