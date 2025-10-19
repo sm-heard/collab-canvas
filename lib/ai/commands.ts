@@ -559,6 +559,8 @@ export async function moveShape(params: AiToolParams["moveShape"], userId: strin
           aiCommandId: previous.shape.meta?.aiCommandId ?? nanoid(),
           updatedBy: userId,
           updatedAt: now,
+          w: params.width,
+          h: params.height,
         },
       },
       updatedAt: now,
@@ -584,8 +586,8 @@ export async function resizeShape(params: AiToolParams["resizeShape"], userId: s
         ...previous.shape,
         props: {
           ...previous.shape.props,
-          width: params.width,
-          height: params.height,
+          w: params.width,
+          h: params.height,
         },
         meta: {
           ...(previous.shape.meta ?? {}),
