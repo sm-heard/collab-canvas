@@ -81,6 +81,17 @@ function sanitizeProps(json: JsonShape): Record<string, unknown> {
       props.color = stroke;
     }
     delete props.stroke;
+
+    const width = props.width;
+    const height = props.height;
+    if (props.w === undefined && typeof width === "number") {
+      props.w = width;
+    }
+    if (props.h === undefined && typeof height === "number") {
+      props.h = height;
+    }
+    delete props.width;
+    delete props.height;
   }
 
   return props;
