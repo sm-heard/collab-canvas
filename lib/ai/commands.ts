@@ -559,8 +559,6 @@ export async function moveShape(params: AiToolParams["moveShape"], userId: strin
           aiCommandId: previous.shape.meta?.aiCommandId ?? nanoid(),
           updatedBy: userId,
           updatedAt: now,
-          w: params.width,
-          h: params.height,
         },
       },
       updatedAt: now,
