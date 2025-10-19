@@ -2,38 +2,24 @@ import "server-only";
 
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { streamText, tool } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { z } from "zod";
 
 import { adminAuth } from "../../../../lib/firebase-admin";
 import {
   arrangeLayout,
   createCompositeLoginForm,
+  createCompositeNavBar,
   createShape,
+  getCanvasState,
   moveShape,
   resizeShape,
   rotateShape,
 } from "../../../../lib/ai/commands";
-import type { AiToolName, AiToolParams } from "../../../../lib/ai/types";
+import type { AiToolParams } from "../../../../lib/ai/types";
 
-function describeCommand(name: AiToolName) {
-  switch (name) {
-    case "createShape":
-      return "Creating shape";
-    case "moveShape":
-      return "Moving shape";
-    case "resizeShape":
-      return "Resizing shape";
-    case "rotateShape":
-      return "Rotating shape";
-    case "arrangeLayout":
-      return "Arranging layout";
-    case "groupShapes":
-      return "Grouping shapes";
-    case "getCanvasState":
-      return "Reading canvas state";
-    default:
-      return "Executing command";
-  }
-}
+const openai = createOpenAI({ apiKey: process.env.AI_API_KEY });
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -53,14 +39,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid or expired Firebase token." }, { status: 401 });
   }
 
-  let payload: {
-    prompt?: string;
-    commandId?: string;
-    tool?: AiToolName;
-    params?: unknown;
-    composite?: "loginForm" | "navBar" | "card";
-    origin?: { x: number; y: number };
-  } = {};
+  let payload: { prompt?: string } = {};
   try {
     payload = (await request.json()) as typeof payload;
   } catch {
@@ -72,85 +51,170 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
   }
 
-  const encoder = new TextEncoder();
   const streamId = nanoid();
-  const start = Date.now();
 
-  const readable = new ReadableStream({
+  const tools = {
+    getCanvasState: tool({
+      description: "Inspect current shapes and metadata on the canvas",
+      inputSchema: z.object({ minimal: z.boolean().optional() }),
+      execute: async (args: AiToolParams["getCanvasState"]) => getCanvasState(args, decoded.uid),
+    }),
+    createShape: tool({
+      description: "Create a new tldraw-compatible shape",
+      inputSchema: z.object({
+        id: z.string().optional(),
+        parentId: z.string().optional(),
+        index: z.string().optional(),
+        type: z.enum(["rect", "circle", "text", "group"]),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        text: z.string().optional(),
+        color: z.string().optional(),
+        rotation: z.number().optional(),
+        fontSize: z.number().optional(),
+      }),
+      execute: async (args: AiToolParams["createShape"]) => createShape(args, decoded.uid),
+    }),
+    moveShape: tool({
+      description: "Move a shape to x/y",
+      inputSchema: z.object({ shapeId: z.string(), x: z.number(), y: z.number() }),
+      execute: async (args: AiToolParams["moveShape"]) => moveShape(args, decoded.uid),
+    }),
+    resizeShape: tool({
+      description: "Resize a shape to width/height",
+      inputSchema: z.object({ shapeId: z.string(), width: z.number(), height: z.number() }),
+      execute: async (args: AiToolParams["resizeShape"]) => resizeShape(args, decoded.uid),
+    }),
+    rotateShape: tool({
+      description: "Rotate a shape",
+      inputSchema: z.object({ shapeId: z.string(), degrees: z.number() }),
+      execute: async (args: AiToolParams["rotateShape"]) => rotateShape(args, decoded.uid),
+    }),
+    arrangeLayout: tool({
+      description: "Arrange a group of shapes",
+      inputSchema: z.object({
+        shapeIds: z.array(z.string()),
+        layout: z.enum(["grid", "row", "column", "distribute"]),
+        rows: z.number().optional(),
+        columns: z.number().optional(),
+        spacing: z.number().optional(),
+      }),
+      execute: async (args: AiToolParams["arrangeLayout"]) => arrangeLayout(args, decoded.uid),
+    }),
+    createCompositeLoginForm: tool({
+      description: "Create a multi-element login form",
+      inputSchema: z.object({ origin: z.object({ x: z.number(), y: z.number() }).optional() }),
+      execute: async ({ origin }: { origin?: { x: number; y: number } }) =>
+        createCompositeLoginForm(decoded.uid, origin ?? { x: 200, y: 200 }),
+    }),
+    createCompositeNavBar: tool({
+      description: "Create a navigation bar layout",
+      inputSchema: z.object({
+        origin: z.object({ x: z.number(), y: z.number() }).optional(),
+        width: z.number().optional(),
+      }),
+      execute: async ({ origin, width }: { origin?: { x: number; y: number }; width?: number }) =>
+        createCompositeNavBar(decoded.uid, origin ?? { x: 160, y: 160 }, { width }),
+    }),
+  } as const;
+
+  const encoder = new TextEncoder();
+  const startedAt = Date.now();
+
+  const body = new ReadableStream({
     async start(controller) {
-      controller.enqueue(
-        encoder.encode(`event: init\ndata: ${JSON.stringify({ streamId, prompt })}\n\n`),
-      );
+      const send = (event: string, data?: Record<string, unknown>) => {
+        const payload = data === undefined ? "" : `data: ${JSON.stringify(data)}\n`;
+        controller.enqueue(encoder.encode(`event: ${event}\n${payload}\n`));
+      };
+
+      send("init", { streamId, prompt });
+
+      let summarySent = false;
 
       try {
-        let result: unknown = null;
-        if (payload.composite === "loginForm") {
-          controller.enqueue(
-            encoder.encode(
-              `event: progress\ndata: ${JSON.stringify({ streamId, status: "running", message: "Creating login form layout…" })}\n\n`,
-            ),
-          );
-          result = await createCompositeLoginForm(decoded.uid, payload.origin ?? { x: 200, y: 200 });
-        } else if (payload.tool && payload.params) {
-          controller.enqueue(
-            encoder.encode(
-              `event: progress\ndata: ${JSON.stringify({ streamId, status: "running", message: describeCommand(payload.tool) })}\n\n`,
-            ),
-          );
+        await streamText({
+          model: openai(process.env.AI_MODEL ?? "gpt-4.1-mini"),
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are the CollabCanvas AI assistant. Use the provided tools to inspect the canvas and create or modify shapes. Always finish after executing the necessary tools.",
+            },
+            { role: "user", content: prompt },
+          ],
+          tools,
+          onChunk: async ({ chunk }) => {
+            switch (chunk.type) {
+              case "text-delta": {
+                const message = typeof chunk.text === "string" ? chunk.text.trim() : "";
+                if (message) {
+                  send("progress", { streamId, status: "running", message });
+                }
+                break;
+              }
+              case "tool-call": {
+                send("progress", {
+                  streamId,
+                  status: "running",
+                  message: `Calling ${chunk.toolName}`,
+                  tool: {
+                    id: chunk.toolCallId,
+                    name: chunk.toolName,
+                    input: chunk.input,
+                  },
+                });
+                break;
+              }
+              case "tool-result":
+              case "source":
+              case "tool-input-start":
+              case "tool-input-delta":
+              case "raw":
+                break;
+              default:
+                break;
+            }
+          },
+          onError: (error) => {
+            summarySent = true;
+            const message = error instanceof Error ? error.message : "AI command failed";
+            send("error", { streamId, status: "error", message });
+          },
+          onFinish: ({ finishReason, usage }) => {
+            if (!summarySent) {
+              summarySent = true;
+              send("summary", {
+                streamId,
+                status: "success",
+                durationMs: Date.now() - startedAt,
+                finishReason,
+                usage,
+              });
+            }
+          },
+        });
 
-          switch (payload.tool) {
-            case "createShape":
-              result = await createShape(payload.params as AiToolParams["createShape"], decoded.uid);
-              break;
-            case "moveShape":
-              result = await moveShape(payload.params as AiToolParams["moveShape"], decoded.uid);
-              break;
-            case "resizeShape":
-              result = await resizeShape(payload.params as AiToolParams["resizeShape"], decoded.uid);
-              break;
-            case "rotateShape":
-              result = await rotateShape(payload.params as AiToolParams["rotateShape"], decoded.uid);
-              break;
-            case "arrangeLayout":
-              result = await arrangeLayout(payload.params as AiToolParams["arrangeLayout"], decoded.uid);
-              break;
-            case "getCanvasState":
-              result = { shapes: [] };
-              break;
-            case "groupShapes":
-              throw new Error("groupShapes is not yet implemented");
-            default:
-              throw new Error(`Unsupported tool: ${payload.tool satisfies never}`);
-          }
-        } else {
-          controller.enqueue(
-            encoder.encode(
-              `event: progress\ndata: ${JSON.stringify({ streamId, status: "thinking", message: "No actionable steps; skipping." })}\n\n`,
-            ),
-          );
+        if (!summarySent) {
+          send("summary", {
+            streamId,
+            status: "success",
+            durationMs: Date.now() - startedAt,
+          });
         }
-
-        const durationMs = Date.now() - start;
-        controller.enqueue(
-          encoder.encode(
-            `event: summary\ndata: ${JSON.stringify({ streamId, status: "success", durationMs, result })}\n\n`,
-          ),
-        );
       } catch (error) {
-        const message = error instanceof Error ? error.message : "AI command failed.";
-        controller.enqueue(
-          encoder.encode(
-            `event: error\ndata: ${JSON.stringify({ streamId, status: "error", message })}\n\n`,
-          ),
-        );
+        const message = error instanceof Error ? error.message : "AI command failed";
+        send("error", { streamId, status: "error", message });
       } finally {
-        controller.enqueue(encoder.encode("event: close\n\n"));
+        send("close");
         controller.close();
       }
     },
   });
 
-  return new Response(readable, {
+  return new Response(body, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",

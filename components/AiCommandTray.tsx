@@ -110,20 +110,31 @@ export function AiCommandTray() {
   const [streamMessages, setStreamMessages] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<boolean>(false);
+  const [layoutMode, setLayoutMode] = useState<"none" | "loginForm" | "navBar">("none");
 
   const canSubmit = prompt.trim().length > 0 && !isStreaming;
 
-  const buildPayload = useCallback((text: string) => {
-    if (layoutMode) {
-      return {
-        prompt: text,
-        composite: "loginForm",
-        origin: { x: 200, y: 200 },
-      };
-    }
-    return { prompt: text };
-  }, [layoutMode]);
+  const buildPayload = useCallback(
+    (text: string) => {
+      if (layoutMode === "loginForm") {
+        return {
+          prompt: text,
+          composite: "loginForm",
+          origin: { x: 200, y: 200 },
+        };
+      }
+      if (layoutMode === "navBar") {
+        return {
+          prompt: text,
+          composite: "navBar",
+          origin: { x: 160, y: 160 },
+          width: 720,
+        };
+      }
+      return { prompt: text };
+    },
+    [layoutMode],
+  );
 
   const handleClose = useCallback(() => {
     toggleAiTray(false);
@@ -314,14 +325,18 @@ export function AiCommandTray() {
                 className="flex-1 resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-inner outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={layoutMode}
-                    onChange={(event) => setLayoutMode(event.target.checked)}
-                    className="h-3 w-3 rounded border-border/60"
-                  />
-                  Produce composite layout (login form)
+                <label className="inline-flex items-center gap-2" htmlFor="layoutModeSelect">
+                  Mode:
+                  <select
+                    id="layoutModeSelect"
+                    value={layoutMode}
+                    onChange={(event) => setLayoutMode(event.target.value as typeof layoutMode)}
+                    className="rounded-md border border-border/60 px-2 py-1 text-xs"
+                  >
+                    <option value="none">Basic prompt</option>
+                    <option value="loginForm">Composite: Login form</option>
+                    <option value="navBar">Composite: Navigation bar</option>
+                  </select>
                 </label>
               </div>
             </div>
