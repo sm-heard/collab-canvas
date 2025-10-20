@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Loader2, Bot, Undo2, Trash2, RotateCcw } from "lucide-react";
+import { Send, Loader2, Bot, Trash2 } from "lucide-react";
 import { nanoid } from "nanoid";
 
 import { cn } from "@/lib/utils";
@@ -10,7 +10,6 @@ import type { AiCommandSummary, AiCommandStreamEvent } from "@/lib/ai/types";
 import { useUiStore } from "@/lib/store";
 import { useAuth } from "@/hooks/useAuth";
 import { auth } from "@/lib/firebase";
-import { useCanvasHistory } from "@/hooks/useCanvasHistory";
 
 function formatDuration(ms?: number) {
   if (!ms) return "--";
@@ -104,37 +103,13 @@ export function AiCommandTray() {
   const setAiCommandStatus = useUiStore((state) => state.setAiCommandStatus);
   const setAiActiveUser = useUiStore((state) => state.setAiActiveUser);
   const { user } = useAuth();
-  const { revertLastAiCommand, canRevertAi } = useCanvasHistory();
   const [prompt, setPrompt] = useState("");
   const [activeCommandId, setActiveCommandId] = useState<string | null>(null);
   const [streamMessages, setStreamMessages] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<"none" | "loginForm" | "navBar">("none");
 
   const canSubmit = prompt.trim().length > 0 && !isStreaming;
-
-  const buildPayload = useCallback(
-    (text: string) => {
-      if (layoutMode === "loginForm") {
-        return {
-          prompt: text,
-          composite: "loginForm",
-          origin: { x: 200, y: 200 },
-        };
-      }
-      if (layoutMode === "navBar") {
-        return {
-          prompt: text,
-          composite: "navBar",
-          origin: { x: 160, y: 160 },
-          width: 720,
-        };
-      }
-      return { prompt: text };
-    },
-    [layoutMode],
-  );
 
   const handleClose = useCallback(() => {
     toggleAiTray(false);
@@ -172,7 +147,7 @@ export function AiCommandTray() {
         }
         const idToken = await currentUser.getIdToken();
 
-        const payload = buildPayload(trimmed);
+        const payload = { prompt: trimmed };
         const reader = await fetchAiStream(payload, idToken);
         const decoder = new TextDecoder();
 
@@ -243,7 +218,6 @@ export function AiCommandTray() {
       addAiHistoryEntry,
       setAiCommandStatus,
       updateAiHistoryEntry,
-      buildPayload,
       setAiActiveUser,
       user?.uid,
     ],
@@ -326,21 +300,6 @@ export function AiCommandTray() {
                 rows={2}
                 className="flex-1 resize-none rounded-xl border border-border/70 bg-background px-3 py-2 text-sm text-foreground shadow-inner outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
               />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <label className="inline-flex items-center gap-2" htmlFor="layoutModeSelect">
-                  Mode:
-                  <select
-                    id="layoutModeSelect"
-                    value={layoutMode}
-                    onChange={(event) => setLayoutMode(event.target.value as typeof layoutMode)}
-                    className="rounded-md border border-border/60 px-2 py-1 text-xs"
-                  >
-                    <option value="none">Basic prompt</option>
-                    <option value="loginForm">Composite: Login form</option>
-                    <option value="navBar">Composite: Navigation bar</option>
-                  </select>
-                </label>
-              </div>
             </div>
             <button
               type="submit"
@@ -357,7 +316,7 @@ export function AiCommandTray() {
               <span>Streaming output</span>
               {streamMessages.length > 0 ? <span>{streamMessages.length} updates</span> : null}
             </div>
-            <div className="min-h-[72px] rounded-xl border border-dashed border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+            <div className="min-h-[72px] max-h-48 overflow-auto rounded-xl border border-dashed border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
               {streamMessages.length > 0 ? (
                 <ul className="space-y-1">
                   {streamMessages.map((message, index) => (
@@ -388,7 +347,7 @@ export function AiCommandTray() {
                 <Trash2 className="h-3 w-3" /> Clear
               </button>
             </div>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-sm max-h-48 overflow-auto pr-1">
               {aiHistory.length === 0 ? (
                 <li className="rounded-xl border border-dashed border-border/60 bg-muted/20 p-3 text-muted-foreground">
                   No history yet. Prompts will appear here after you run them.
@@ -436,28 +395,14 @@ export function AiCommandTray() {
             </ul>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Undo2 className="h-3 w-3" />
-              <span>Undo AI actions via `Cmd+Z` after execution.</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={revertLastAiCommand}
-                disabled={!canRevertAi}
-                className="inline-flex items-center gap-1 rounded-md border border-border/80 px-2 py-1 text-xs font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <RotateCcw className="h-3 w-3" /> Revert last AI action
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
-              >
-                Close
-              </button>
-            </div>
+          <div className="flex items-center justify-end text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground transition hover:text-foreground"
+            >
+              Close
+            </button>
           </div>
         </motion.aside>
       ) : null}
