@@ -26,6 +26,8 @@ type UiState = {
   aiHistory: AiCommandHistoryEntry[];
   aiActiveUser?: { userId: string; prompt: string; status: "running" | "error"; message?: string } | null;
   lastAiSnapshotAt?: number | null;
+  isAudioEnabled: boolean;
+  setAudioEnabled: (enabled: boolean) => void;
   toggleAiTray: (open?: boolean) => void;
   addAiHistoryEntry: (entry: AiCommandSummary) => void;
   updateAiHistoryEntry: (commandId: string, partial: Partial<AiCommandSummary>) => void;
@@ -41,6 +43,8 @@ export const useUiStore = create<UiState>((set) => ({
   aiHistory: [],
   aiActiveUser: null,
   lastAiSnapshotAt: null,
+  isAudioEnabled: true,
+  setAudioEnabled: (enabled) => set({ isAudioEnabled: enabled }),
   toggleAiTray: (open) =>
     set((state) => ({ aiTrayOpen: open ?? !state.aiTrayOpen })),
   addAiHistoryEntry: (entry) =>

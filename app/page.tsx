@@ -4,6 +4,7 @@ import Toolbar from "@/components/Toolbar";
 import Canvas from "@/components/Canvas";
 import LiveblocksPresenceSummary from "@/components/LiveblocksPresenceSummary";
 import AiCommandTray from "@/components/AiCommandTray";
+import BackgroundAudio from "@/components/BackgroundAudio";
 import { useAuth } from "@/hooks/useAuth";
 import { useStatus } from "@liveblocks/react";
 
@@ -27,6 +28,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-muted/30 p-6">
+      <BackgroundAudio />
       <Toolbar />
       <main className="relative flex flex-1 flex-col overflow-hidden rounded-2xl border border-dashed border-border/80 bg-background/70 p-0 shadow-inner">
         {showPresence ? <PresenceOverlay /> : null}
