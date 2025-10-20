@@ -122,7 +122,7 @@ export async function POST(request: Request) {
         id: z.string().optional(),
         parentId: z.string().optional(),
         index: z.string().optional(),
-        type: z.enum(["rect", "circle", "text", "group"]),
+        type: z.enum(["rect", "circle", "text", "group", "triangle"]),
         x: z.number(),
         y: z.number(),
         width: z.number().optional(),

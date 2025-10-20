@@ -426,6 +426,9 @@ export function Canvas() {
         autoFocus
         hideUi={false}
         className="tldraw-theme-light"
+        components={{
+          PageMenu: () => null,
+        }}
         onMount={(editor) => {
           editorRef.current = editor;
         }}

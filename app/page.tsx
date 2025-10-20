@@ -6,18 +6,11 @@ import LiveblocksPresenceSummary from "@/components/LiveblocksPresenceSummary";
 import AiCommandTray from "@/components/AiCommandTray";
 import BackgroundAudio from "@/components/BackgroundAudio";
 import { useAuth } from "@/hooks/useAuth";
-import { useStatus } from "@liveblocks/react";
 
 function PresenceOverlay() {
-  const status = useStatus();
-
   return (
     <div className="pointer-events-none absolute left-0 top-0 flex flex-col gap-3 text-left">
       <LiveblocksPresenceSummary />
-      <div className="rounded-lg bg-background/90 px-4 py-2 text-xs font-medium text-muted-foreground shadow-sm">
-        <p className="font-semibold text-foreground">Realtime sync</p>
-        <p>Status: {status}</p>
-      </div>
     </div>
   );
 }

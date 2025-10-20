@@ -72,7 +72,7 @@ export type AiToolParams = {
     id?: string;
     parentId?: string;
     index?: string;
-    type: "rect" | "circle" | "text" | "group";
+    type: "rect" | "circle" | "text" | "group" | "triangle";
     x: number;
     y: number;
     width?: number;

@@ -130,6 +130,40 @@ function normalizeShape(shape: JsonShape): JsonShape {
     } satisfies JsonShape;
   }
 
+  if (shape.type === "triangle") {
+    const { width: rawWidth, height: rawHeight, ...rest } = props;
+    const width = typeof rawWidth === "number" ? rawWidth : 220;
+    const height = typeof rawHeight === "number" ? rawHeight : 200;
+    const color = normalizeColor(rest.color, "violet");
+    const fill = typeof rest.fill === "string" ? rest.fill : "semi";
+    return {
+      ...shape,
+      type: "geo",
+      props: {
+        geo: "triangle",
+        dash: "draw",
+        url: "",
+        growY: 0,
+        scale: 1,
+        labelColor: "black",
+        color,
+        fill,
+        size: "m",
+        font: "draw",
+        align: "middle-legacy",
+        verticalAlign: "middle",
+        w: width,
+        h: height,
+        richText: createRichText(typeof rest.text === "string" ? rest.text : ""),
+      },
+      meta: {
+        ...(shape.meta ?? {}),
+        w: width,
+        h: height,
+      },
+    } satisfies JsonShape;
+  }
+
   if (shape.type === "circle") {
     const defaultSize = 140;
     const { width: rawWidth, height: rawHeight, ...rest } = props;
