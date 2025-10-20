@@ -54,11 +54,16 @@ export function Toolbar({ className }: ToolbarProps) {
       role="banner"
     >
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-lg font-bold text-white shadow-sm">
-          PB
-        </div>
+        <Image
+          src="/vibeboardlogo.png"
+          alt="Vibeboard logo"
+          width={40}
+          height={40}
+          className="h-10 w-10 rounded-lg"
+          priority
+        />
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Pulseboard</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Vibeboard</h1>
         </div>
       </div>
       <div className="flex flex-1 items-center justify-center">
